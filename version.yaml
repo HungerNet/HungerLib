@@ -1,33 +1,37 @@
 run: true
 version: '4.24-alpha.2'
 description: |
-  - Dev 1:
-    - Added email features
-  - Dev 2:
-    - Renamed EmailUser to EmailClient
-  - Dev 3:
-    - Fixed syntax
-  - Dev 4:
-    - Fixed pyproject.toml
-  - Dev 5-6:
-    - Debugging
-  - Dev 7:
-    - Uses .format instead of res()
-  - Dev 8:
-    - Uses Template instead of .format
-  - Dev 9:
-    - Updated html
-  - Dev 10:
-    - Uses Jinja2 instead of Template
-    - Updated html
-  - Dev 11-12:
-    - Debugging
-  - Dev 13:
-    - Changed TO: field to list[str] instead of str
-  - Dev 14:
-    - Started work on html styling
-  - Alpha 1:
-    - Now in Alpha channel
-    - Removed debugging code from EmailManager
-  - Alpha 2:
-    - Added cloudflare package to dependencies
+  Dev 1:
+  - Added email features
+  Dev 2:
+  - Renamed EmailUser to EmailClient
+  Dev 3:
+  - Fixed syntax
+  Dev 4:
+  - Fixed pyproject.toml
+  Dev 5-6:
+  - Debugging
+  Dev 7:
+  - Uses .format instead of res()
+  Dev 8:
+  - Uses Template instead of .format
+  Dev 9:
+  - Updated html
+  Dev 10:
+  - Uses Jinja2 instead of Template
+  - Updated html
+  Dev 11-12:
+  - Debugging
+  Dev 13:
+  - Changed TO: field to list[str] instead of str
+  Dev 14:
+  - Started work on html styling
+  Alpha 1:
+  - Now in Alpha channel
+  - Removed debugging code from EmailManager
+  -Alpha 2:
+  - Added cloudflare package to dependencies
+  Alpha 3:
+  - Changed changelog format
+  - Added WebhookServer and WebhookClient
+  - Added FastAPI and Uvicorn to dependencies

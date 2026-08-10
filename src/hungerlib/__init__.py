@@ -15,6 +15,7 @@ from .servers import GenericServer, MinecraftServer
 from .bridgeclient import BridgeClient
 from .discord_bot_webhook import DiscordBotWebhook
 from .email import Email, EmailManager, EmailClient
+from .webhook import WebhookClient, WebhookServer
 from .validator import (
     Validator,
     ValidationError,
@@ -61,6 +62,10 @@ servers = SimpleNamespace(
     Minecraft = MinecraftServer,
 )
 
+webhook = SimpleNamespace(
+    Client = WebhookClient,
+    Server = WebhookServer,
+)
 
 
 __all__ = [
@@ -89,6 +94,8 @@ __all__ = [
     'Snapshot',
     'clearTerminal',
     'validateAll',
+    'WebhookServer',
+    'WebhookClient',
 
     # errors
     'ValidationError',
@@ -105,4 +112,5 @@ __all__ = [
     # namespaces
     'utils',
     'servers',
+    'webhook',
 ]

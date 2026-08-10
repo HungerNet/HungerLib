@@ -31,6 +31,8 @@ dependencies = [
     "mapres",
     "jinja2",
     "cloudflare",
+    "uvicorn",
+    "fastapi"
 ]
 
 classifiers = [
