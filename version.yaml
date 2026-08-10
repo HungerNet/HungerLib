@@ -1,5 +1,5 @@
 run: true
-version: '4.24-alpha.3'
+version: '4.24-alpha.4'
 description: |
   Dev 1:
   - Added email features
@@ -35,3 +35,5 @@ description: |
   - Changed changelog format
   - Added WebhookServer and WebhookClient
   - Added FastAPI and Uvicorn to dependencies
+  Alpha 4:
+  - Removed DiscordBotWebhook as it is no longer needed
