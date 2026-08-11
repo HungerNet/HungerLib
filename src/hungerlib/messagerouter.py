@@ -75,10 +75,13 @@ class MessageRouter:
     def toggleBuffer(self): self.buffer_enabled = not self.buffer_enabled
 
     def clearBuffer(self): self.buffer = []
-    
-    def flushBuffer(self):
+
+    def printBuffer(self):
         for msg in self.buffer:
             print(msg)
+    
+    def flushBuffer(self):
+        self.printBuffer()
         self.clearBuffer()
 
 
