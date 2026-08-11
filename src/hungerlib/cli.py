@@ -269,16 +269,18 @@ class LiveCLI:
     async def run(self):
         while True:
 
+            # If in CLI mode, show prompt BEFORE input
+            if self.outputMode == 'cli':
+                print('> ', end='')
+
             # Suppress Python's input echo in Pterodactyl
             print('', end='')
 
             # Read input WITHOUT prompt (prompt will be printed later)
             line = await asyncio.to_thread(input, "")
             line = line.strip()
+
             if not line:
-                # If in CLI mode, always show prompt
-                if self.outputMode == 'cli':
-                    print('> ', end='')
                 continue
 
             tokens = line.split()

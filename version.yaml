@@ -1,5 +1,5 @@
 run: true
-version: '4.24-alpha.18'
+version: '4.24-alpha.19'
 description: |
   Dev 1:
   - Added email features
@@ -63,3 +63,5 @@ description: |
   - Buffering fixes to LiveCLI
   Alpha 18:
   - Added enable and disable methods for origin_output to MessageRouter
+  Alpha 19:
+  - Fix CLI prompt
