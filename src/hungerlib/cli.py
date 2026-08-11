@@ -212,7 +212,7 @@ class LiveCLI:
             subs = self._list_subcommands(path)
             if subs:
                 raise ValueError(f"Unknown command: {' '.join(path)}. Subcommands: {', '.join(subs)}")
-            raise ValueError(f"Unknown command: {' '.join(path)}")
+            raise ValueError(f"Unknown command: '{tokens[0]}'")
 
         cmd = node.command
 
@@ -269,14 +269,16 @@ class LiveCLI:
     async def run(self):
         while True:
 
-            # manual prompt
-            if self.outputMode == 'cli':
-                print('> ', end='')
+            # Suppress Python's input echo in Pterodactyl
+            print('', end='')
 
-            # input w/o prompt (fixes duplicate echo)
+            # Read input WITHOUT prompt (prompt will be printed later)
             line = await asyncio.to_thread(input, "")
             line = line.strip()
             if not line:
+                # If in CLI mode, always show prompt
+                if self.outputMode == 'cli':
+                    print('> ', end='')
                 continue
 
             tokens = line.split()
@@ -284,18 +286,29 @@ class LiveCLI:
             try:
                 cmd, arg_tokens = self._resolve_command(tokens)
                 if cmd is None:
+                    if self.outputMode == 'cli':
+                        print('> ', end='')
                     continue
 
                 kwargs = self._parse_arguments(cmd, arg_tokens)
                 result = await cmd.run(**kwargs)
 
+                # Print command result
                 if result is not None and self.outputMode in ('both', 'cli'):
                     print(result)
 
-                # print CLI buffer w/o clearing it
+                # Print CLI buffer WITHOUT clearing it
                 if self.outputMode == 'cli':
                     for msg in self.buffer:
                         print(msg)
 
+                # ALWAYS print prompt after command execution
+                if self.outputMode == 'cli':
+                    print('> ', end='')
+
             except Exception as e:
                 print(f"Error: {e}")
+
+                # Print prompt after errors too
+                if self.outputMode == 'cli':
+                    print('> ', end='')
