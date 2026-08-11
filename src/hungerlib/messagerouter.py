@@ -69,7 +69,7 @@ class MessageRouter:
 
     
     def enableOriginOutput(self): self.origin_output = True
-    def disableOriginOutput(self): self.origin_output = True
+    def disableOriginOutput(self): self.origin_output = False
 
     def registerLevel(self, name, prefix, file_method=None, routes=None):
         lvl = name.lower()

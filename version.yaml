@@ -1,5 +1,5 @@
 run: true
-version: '4.24-alpha.20'
+version: '4.24-alpha.21'
 description: |
   Dev 1:
   - Added email features
@@ -65,5 +65,5 @@ description: |
   - Added enable and disable methods for origin_output to MessageRouter
   Alpha 19:
   - Fix CLI prompt
-  Alpha 20:
+  Alpha 20-21:
   - Fixed methods in MessageRouter
