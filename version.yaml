@@ -1,5 +1,5 @@
 run: true
-version: '4.24-alpha.8'
+version: '4.24-alpha.9'
 description: |
   Dev 1:
   - Added email features
@@ -47,3 +47,5 @@ description: |
   - Fixed buffer methods
   Alpha 8:
   - Fixed MessageRouter's constructor to accept origin_output and buffer_enabled
+  Alpha 9:
+  - Added printBuffer() method to MessageRouter
