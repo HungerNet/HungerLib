@@ -64,7 +64,7 @@ class MessageRouter:
         }
 
         # buffering
-        self.Buffer = Buffer(enabled=buffer_enabled)
+        self.buffer = Buffer(enabled=buffer_enabled)
         self.origin_output = origin_output
 
 
@@ -150,8 +150,8 @@ class MessageRouter:
         msg = prefix + mapped
         
         # buffer logic
-        if self.Buffer.enabled:
-            self.Buffer.captured.append(msg)
+        if self.buffer.enabled:
+            self.buffer.captured.append(msg)
         
         # origin output check
         if self.origin_output:

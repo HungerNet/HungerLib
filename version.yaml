@@ -1,5 +1,5 @@
 run: true
-version: '4.24-alpha.12'
+version: '4.24-alpha.13'
 description: |
   Dev 1:
   - Added email features
@@ -55,3 +55,5 @@ description: |
   - Simplified Buffer methods
   Alpha 12:
   - Renamed buffer.print() to buffer.printCaptured()
+  Alpha 13:
+  - Naming changes
