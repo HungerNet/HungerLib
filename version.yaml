@@ -1,5 +1,5 @@
 run: true
-version: '4.24-alpha.14'
+version: '4.24-alpha.15'
 description: |
   Dev 1:
   - Added email features
@@ -59,3 +59,5 @@ description: |
   - Naming changes
   Alpha 14:
   - Added buffering to LiveCLI
+  Alpha 15:
+  - Buffering fixes to LiveCLI
