@@ -50,7 +50,16 @@ class LiveCLI:
         self.type_registry: dict[str, callable] = {}
         self.aliases: dict[str, str] = {}
         self.outputMode = 'both'
+        self.buffer: list[str] = []
         self._register_builtin()
+
+    def write(self, msg: str):
+        self.buffer.append(str(msg))
+
+    def flush_buffer(self):
+        for msg in self.buffer:
+            print(msg)
+        self.buffer.clear()
 
     def register_type(self, name: str, type_: callable):
         self.type_registry[name] = type_
@@ -276,6 +285,10 @@ class LiveCLI:
 
                 if result is not None and self.outputMode in ('both', 'cli'):
                     print(result)
+
+                # flush cli buffer
+                if self.outputMode == 'cli':
+                    self.flush_buffer()
 
             except Exception as e:
                 print(f'Error: {e}')

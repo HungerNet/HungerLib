@@ -1,5 +1,5 @@
 run: true
-version: '4.24-alpha.13'
+version: '4.24-alpha.14'
 description: |
   Dev 1:
   - Added email features
@@ -57,3 +57,5 @@ description: |
   - Renamed buffer.print() to buffer.printCaptured()
   Alpha 13:
   - Naming changes
+  Alpha 14:
+  - Added buffering to LiveCLI
