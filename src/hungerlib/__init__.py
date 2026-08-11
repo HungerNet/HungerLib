@@ -35,6 +35,7 @@ from .utils import (
     Snapshot,
     clearTerminal,
     validateAll,
+    Buffer,
 
     # exceptions
     HungerLibError,
@@ -54,6 +55,7 @@ utils = SimpleNamespace(
     Snapshot = Snapshot,
     clearTerminal = clearTerminal,
     validateAll = validateAll,
+    Buffer = Buffer,
 )
 
 servers = SimpleNamespace(
@@ -96,6 +98,7 @@ __all__ = [
     'validateAll',
     'WebhookServer',
     'WebhookClient',
+    'Buffer',
 
     # errors
     'ValidationError',

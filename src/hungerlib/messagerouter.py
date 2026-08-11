@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 from datetime import datetime
 from .utils.exceptions import InvalidLevelError
+from .utils.buffer import Buffer
 
 class MessageRouter:
     def __init__(
@@ -62,27 +63,9 @@ class MessageRouter:
             'filelog': self.filelog
         }
 
-        # global buffer toggle
-        self.buffer_enabled = buffer_enabled
-        self.buffer = []
-
+        # buffering
+        self.Buffer = Buffer(enabled=buffer_enabled)
         self.origin_output = origin_output
-
-    def enableBuffer(self): self.buffer_enabled = True
-
-    def disableBuffer(self): self.buffer_enabled = False
-
-    def toggleBuffer(self): self.buffer_enabled = not self.buffer_enabled
-
-    def clearBuffer(self): self.buffer = []
-
-    def printBuffer(self):
-        for msg in self.buffer:
-            print(msg)
-    
-    def flushBuffer(self):
-        self.printBuffer()
-        self.clearBuffer()
 
 
     def registerLevel(self, name, prefix, file_method=None, routes=None):
@@ -167,8 +150,8 @@ class MessageRouter:
         msg = prefix + mapped
         
         # buffer logic
-        if self.buffer_enabled:
-            self.buffer.append(msg)
+        if self.Buffer.enabled:
+            self.Buffer.captured.append(msg)
         
         # origin output check
         if self.origin_output:

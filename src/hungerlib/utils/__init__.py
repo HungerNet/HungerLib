@@ -1,3 +1,4 @@
+from .buffer import Buffer
 from .utils import Snapshot, clearTerminal, validateAll
 from .exceptions import (
     HungerLibError,
@@ -24,6 +25,7 @@ __all__ = [
     'Snapshot',
     'clearTerminal',
     'validateAll',
+    'Buffer',
 
     # exceptions
     'HungerLibError',
