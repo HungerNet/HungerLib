@@ -3,18 +3,18 @@ class Buffer:
         self.enabled = enabled
         self.captured = []
 
-    def enableBuffer(self): self.enabled = True
+    def enable(self): self.enabled = True
 
-    def disableBuffer(self): self.enabled = False
+    def disable(self): self.enabled = False
 
-    def toggleBuffer(self): self.enabled = not self.enabled
+    def toggle(self): self.enabled = not self.enabled
 
-    def clearBuffer(self): self.captured = []
+    def clear(self): self.captured = []
 
-    def printBuffer(self):
+    def print(self):
         for msg in self.captured:
             print(msg)
     
-    def flushBuffer(self):
-        self.printBuffer()
-        self.clearBuffer()
+    def flush(self):
+        self.print()
+        self.clear()

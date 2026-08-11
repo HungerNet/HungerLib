@@ -1,5 +1,5 @@
 run: true
-version: '4.24-alpha.10'
+version: '4.24-alpha.11'
 description: |
   Dev 1:
   - Added email features
@@ -51,3 +51,5 @@ description: |
   - Added printBuffer() method to MessageRouter
   Alpha 10:
   - Moved buffer to its own class in utils/buffer.py
+  Alpha 11:
+  - Simplified Buffer methods
