@@ -269,11 +269,12 @@ class LiveCLI:
     async def run(self):
         while True:
 
-            # the fix for Pterodactyl echo and stray prompt
-            print('', end='')
-            prompt = '> ' if self.outputMode == 'cli' else ''
+            # manual prompt
+            if self.outputMode == 'cli':
+                print('> ', end='')
 
-            line = await asyncio.to_thread(input, prompt)
+            # input w/o prompt (fixes duplicate echo)
+            line = await asyncio.to_thread(input, "")
             line = line.strip()
             if not line:
                 continue
@@ -295,10 +296,6 @@ class LiveCLI:
                 if self.outputMode == 'cli':
                     for msg in self.buffer:
                         print(msg)
-                    print('> ', end='')
 
             except Exception as e:
                 print(f"Error: {e}")
-                if self.outputMode == 'cli':
-                    print('> ', end='')
-
