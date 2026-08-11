@@ -20,6 +20,9 @@ class MessageRouter:
         info_prefix  = '<white>[%hh%:%mm%:%ss%] [INFO]: ',
         warn_prefix  = '<yellow>[%hh%:%mm%:%ss%] [WARN]: ',
         error_prefix = '<red>[%hh%:%mm%:%ss%] [ERROR]: ',
+
+        buffer_enabled = False,
+        origin_output = True
     ):
         self.name = name
         self.Servers = Servers
@@ -60,10 +63,10 @@ class MessageRouter:
         }
 
         # global buffer toggle
-        self.buffer_enabled = False
+        self.buffer_enabled = buffer_enabled
         self.buffer = []
 
-        self.origin_output = False
+        self.origin_output = origin_output
 
     def enableBuffer(self): self.buffer_enabled = True
 
