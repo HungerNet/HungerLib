@@ -62,7 +62,7 @@ class LiveCLI:
                 prefix: str | None = None, description: str | None = None,
                 category: str | None = None, hidden: bool = False):
 
-        if any(part == "help" for part in name.split(".")):
+        if any(part == "help" for part in name.split(".")) and name != "help":
             raise ValueError("Cannot define a command named 'help'. It is reserved.")
 
         def decorator(func: callable):
