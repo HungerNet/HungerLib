@@ -11,10 +11,10 @@ class Buffer:
 
     def clear(self): self.captured = []
 
-    def print(self):
+    def printCaptured(self):
         for msg in self.captured:
             print(msg)
     
     def flush(self):
-        self.print()
+        self.printCaptured()
         self.clear()

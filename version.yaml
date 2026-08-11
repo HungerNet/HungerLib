@@ -1,5 +1,5 @@
 run: true
-version: '4.24-alpha.11'
+version: '4.24-alpha.12'
 description: |
   Dev 1:
   - Added email features
@@ -53,3 +53,5 @@ description: |
   - Moved buffer to its own class in utils/buffer.py
   Alpha 11:
   - Simplified Buffer methods
+  Alpha 12:
+  - Renamed buffer.print() to buffer.printCaptured()
