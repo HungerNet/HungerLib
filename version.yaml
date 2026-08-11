@@ -1,5 +1,5 @@
 run: true
-version: '4.24-alpha.6'
+version: '4.24-alpha.7'
 description: |
   Dev 1:
   - Added email features
@@ -42,3 +42,6 @@ description: |
   - Added LiveCLI module
   Alpha 6:
   - Fixed help guard
+  Alpha 7:
+  - Added origin_output to MessageRouter
+  - Fixed buffer methods

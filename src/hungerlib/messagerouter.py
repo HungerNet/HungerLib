@@ -63,22 +63,21 @@ class MessageRouter:
         self.buffer_enabled = False
         self.buffer = []
 
-    def enableBuffer(self):
-        self.buffer_enabled = True
+        self.origin_output = False
 
-    def disableBuffer(self):
-        self.buffer_enabled = False
+    def enableBuffer(self): self.buffer_enabled = True
 
-    def toggleBuffer(self):
-        self.buffer_enabled = not self.buffer_enabled
+    def disableBuffer(self): self.buffer_enabled = False
+
+    def toggleBuffer(self): self.buffer_enabled = not self.buffer_enabled
+
+    def clearBuffer(self): self.buffer = []
     
     def flushBuffer(self):
         for msg in self.buffer:
             print(msg)
-        self.buffer.clear()
+        self.clearBuffer()
 
-    def clearBuffer(self):
-        self.buffer = []
 
     def registerLevel(self, name, prefix, file_method=None, routes=None):
         lvl = name.lower()
@@ -164,7 +163,9 @@ class MessageRouter:
         # buffer logic
         if self.buffer_enabled:
             self.buffer.append(msg)
-        else:
+        
+        # origin output check
+        if self.origin_output:
             print(msg)
 
         return msg
