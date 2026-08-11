@@ -59,6 +59,27 @@ class MessageRouter:
             'filelog': self.filelog
         }
 
+        # global buffer toggle
+        self.buffer_enabled = False
+        self.buffer = []
+
+    def enableBuffer(self):
+        self.buffer_enabled = True
+
+    def disableBuffer(self):
+        self.buffer_enabled = False
+
+    def toggleBuffer(self):
+        self.buffer_enabled = not self.buffer_enabled
+    
+    def flushBuffer(self):
+        for msg in self.buffer:
+            print(msg)
+        self.buffer.clear()
+
+    def clearBuffer(self):
+        self.buffer = []
+
     def registerLevel(self, name, prefix, file_method=None, routes=None):
         lvl = name.lower()
         self.custom_levels[lvl] = {
@@ -139,7 +160,13 @@ class MessageRouter:
         mapped = self._format(text, maps, **ctx)
         prefix = self._resolve_prefix(level, ctx)
         msg = prefix + mapped
-        print(msg)
+        
+        # buffer logic
+        if self.buffer_enabled:
+            self.buffer.append(msg)
+        else:
+            print(msg)
+
         return msg
 
     def destination(self, text, level='info', extra_maps=None, override_maps=None, **ctx):

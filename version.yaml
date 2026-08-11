@@ -1,5 +1,5 @@
 run: true
-version: '4.24-alpha.4'
+version: '4.24-alpha.5'
 description: |
   Dev 1:
   - Added email features
@@ -37,3 +37,6 @@ description: |
   - Added FastAPI and Uvicorn to dependencies
   Alpha 4:
   - Removed DiscordBotWebhook as it is no longer needed
+  Alpha 5:
+  - Added buffering to MessageRouter
+  - Added LiveCLI module
