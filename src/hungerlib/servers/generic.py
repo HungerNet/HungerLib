@@ -69,9 +69,10 @@ class GenericServer:
         uptime = self.resources().get('uptime')
         if uptime is None:
             return None
-        seconds = uptime // 1000
         if not formatted:
-            return seconds
+            # return seconds # returns seconds
+            return uptime # returns miliseconds
+        seconds = uptime // 1000
         hours = seconds // 3600
         minutes = (seconds % 3600) // 60
         secs = seconds % 60

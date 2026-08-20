@@ -1,5 +1,5 @@
 run: true
-version: '4.24-alpha.21'
+version: '4.24-alpha.22'
 description: |
   Dev 1:
   - Added email features
@@ -67,3 +67,5 @@ description: |
   - Fix CLI prompt
   Alpha 20-21:
   - Fixed methods in MessageRouter
+  Alpha 22:
+  - GenericServer's getUptime() now returns miliseconds instead of seconds if not formatted
