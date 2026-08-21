@@ -56,6 +56,7 @@ utils = SimpleNamespace(
     clearTerminal = clearTerminal,
     validateAll = validateAll,
     Buffer = Buffer,
+    convert = convert,
 )
 
 servers = SimpleNamespace(
@@ -99,6 +100,7 @@ __all__ = [
     'WebhookServer',
     'WebhookClient',
     'Buffer',
+    'convert',
 
     # errors
     'ValidationError',

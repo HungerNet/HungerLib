@@ -1,5 +1,6 @@
 from .buffer import Buffer
 from .utils import Snapshot, clearTerminal, validateAll
+from .convert import convert
 from .exceptions import (
     HungerLibError,
     InvalidLevelError,
@@ -26,6 +27,7 @@ __all__ = [
     'clearTerminal',
     'validateAll',
     'Buffer',
+    'convert',
 
     # exceptions
     'HungerLibError',
