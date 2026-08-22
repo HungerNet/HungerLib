@@ -36,6 +36,7 @@ from .utils import (
     clearTerminal,
     validateAll,
     Buffer,
+    convert,
 
     # exceptions
     HungerLibError,

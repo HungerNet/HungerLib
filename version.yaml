@@ -1,5 +1,5 @@
 run: true
-version: '4.24-alpha.23'
+version: '4.24-alpha.24'
 description: |
   Dev 1:
   - Added email features
@@ -71,3 +71,5 @@ description: |
   - GenericServer's getUptime() now returns miliseconds instead of seconds if not formatted
   Alpha 23:
   - Added new convert() utility
+  Alpha 24:
+  - Fixed export
