@@ -11,6 +11,7 @@ class TimeUnits:
     min: float = 60
     h: float = 3600
     day: float = 86400
+time_units = TimeUnits()
 
 
 @datamap.pipes
@@ -27,11 +28,12 @@ class ByteUnits:
     mib: int = 1024**2
     gib: int = 1024**3
     tib: int = 1024**4
+byte_units = ByteUnits()
 
 
 def _time(value, src, dst, rounding=None):
-    src_factor = res(f"|{src}|", extra_maps=TimeUnits)
-    dst_factor = res(f"|{dst}|", extra_maps=TimeUnits)
+    src_factor = res(f"|{src}|", extra_maps=time_units)
+    dst_factor = res(f"|{dst}|", extra_maps=time_units)
 
     base = float(value) * src_factor
     result = base / dst_factor
@@ -40,8 +42,8 @@ def _time(value, src, dst, rounding=None):
 
 
 def _byte(value, src, dst, rounding=None):
-    src_factor = res(f"|{src}|", extra_maps=ByteUnits)
-    dst_factor = res(f"|{dst}|", extra_maps=ByteUnits)
+    src_factor = res(f"|{src}|", extra_maps=byte_units)
+    dst_factor = res(f"|{dst}|", extra_maps=byte_units)
 
     base = float(value) * src_factor
     result = base / dst_factor
