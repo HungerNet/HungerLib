@@ -30,8 +30,8 @@ class ByteUnits:
 
 
 def _time(value, src, dst, rounding=None):
-    src_factor = res(f"|{src}|", TimeUnits)
-    dst_factor = res(f"|{dst}|", TimeUnits)
+    src_factor = res(f"|{src}|", extra_maps=TimeUnits)
+    dst_factor = res(f"|{dst}|", extra_maps=TimeUnits)
 
     base = float(value) * src_factor
     result = base / dst_factor
@@ -40,8 +40,8 @@ def _time(value, src, dst, rounding=None):
 
 
 def _byte(value, src, dst, rounding=None):
-    src_factor = res(f"|{src}|", ByteUnits)
-    dst_factor = res(f"|{dst}|", ByteUnits)
+    src_factor = res(f"|{src}|", extra_maps=ByteUnits)
+    dst_factor = res(f"|{dst}|", extra_maps=ByteUnits)
 
     base = float(value) * src_factor
     result = base / dst_factor

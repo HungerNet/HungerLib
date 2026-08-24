@@ -1,5 +1,5 @@
 run: true
-version: '4.24-alpha.26'
+version: '4.24-alpha.27'
 description: |
   Dev 1:
   - Added email features
@@ -73,5 +73,5 @@ description: |
   - Added new convert() utility
   Alpha 25:
   - Fixed export
-  Alpha 26:
+  Alpha 26-27:
   - Fixed convert
