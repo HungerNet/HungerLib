@@ -29,21 +29,21 @@ class ByteUnits:
     tib: int = 1024**4
 
 
-def _time(*, value, src, dst, rounding=None):
-    src_factor = res('|src|', TimeUnits)
-    dst_factor = res('|dst|', TimeUnits)
+def _time(value, src, dst, rounding=None):
+    src_factor = res(f"|{src}|", TimeUnits)
+    dst_factor = res(f"|{dst}|", TimeUnits)
 
-    base = value * src_factor
+    base = float(value) * src_factor
     result = base / dst_factor
 
     return round(result, rounding) if rounding is not None else result
 
 
-def _byte(*, value, src, dst, rounding=None):
-    src_factor = res('|src|', ByteUnits)
-    dst_factor = res('|dst|', ByteUnits)
+def _byte(value, src, dst, rounding=None):
+    src_factor = res(f"|{src}|", ByteUnits)
+    dst_factor = res(f"|{dst}|", ByteUnits)
 
-    base = value * src_factor
+    base = float(value) * src_factor
     result = base / dst_factor
 
     return round(result, rounding) if rounding is not None else result
