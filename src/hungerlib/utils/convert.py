@@ -32,20 +32,24 @@ byte_units = ByteUnits()
 
 
 def _time(value, src, dst, rounding=None):
-    src_factor = res(f"|{src}|", extra_maps=time_units)
-    dst_factor = res(f"|{dst}|", extra_maps=time_units)
+    value = float(value)
 
-    base = float(value) * src_factor
+    src_factor = float(res(f"|{src}|", extra_maps=time_units))
+    dst_factor = float(res(f"|{dst}|", extra_maps=time_units))
+
+    base = value * src_factor
     result = base / dst_factor
 
     return round(result, rounding) if rounding is not None else result
 
 
 def _byte(value, src, dst, rounding=None):
-    src_factor = res(f"|{src}|", extra_maps=byte_units)
-    dst_factor = res(f"|{dst}|", extra_maps=byte_units)
+    value = float(value)
 
-    base = float(value) * src_factor
+    src_factor = float(res(f"|{src}|", extra_maps=byte_units))
+    dst_factor = float(res(f"|{dst}|", extra_maps=byte_units))
+
+    base = value * src_factor
     result = base / dst_factor
 
     return round(result, rounding) if rounding is not None else result
