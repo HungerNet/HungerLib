@@ -34,8 +34,8 @@ byte_units = ByteUnits()
 def _time(value, src, dst, rounding=None):
     value = float(value)
 
-    src_factor = float(res(f"|{src}|", extra_maps=time_units))
-    dst_factor = float(res(f"|{dst}|", extra_maps=time_units))
+    src_factor = float(getattr(time_units, src))
+    dst_factor = float(getattr(time_units, dst))
 
     base = value * src_factor
     result = base / dst_factor
@@ -46,8 +46,8 @@ def _time(value, src, dst, rounding=None):
 def _byte(value, src, dst, rounding=None):
     value = float(value)
 
-    src_factor = float(res(f"|{src}|", extra_maps=byte_units))
-    dst_factor = float(res(f"|{dst}|", extra_maps=byte_units))
+    src_factor = float(getattr(byte_units, src))
+    dst_factor = float(getattr(byte_units, dst))
 
     base = value * src_factor
     result = base / dst_factor
