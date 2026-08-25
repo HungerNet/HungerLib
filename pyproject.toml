@@ -31,7 +31,8 @@ dependencies = [
     "jinja2",
     "cloudflare",
     "uvicorn",
-    "fastapi"
+    "fastapi",
+    "hypercorn",
 ]
 
 classifiers = [

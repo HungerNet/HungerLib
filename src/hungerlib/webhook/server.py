@@ -1,5 +1,7 @@
-import uvicorn
 from fastapi import FastAPI, Request, Header, HTTPException
+
+from hypercorn.asyncio import serve
+from hypercorn.config import Config
 
 class WebhookServer:
     def __init__(self, port: int, token: str, host: str = "0.0.0.0", logLevel: str = "info"):
@@ -41,14 +43,10 @@ class WebhookServer:
         self._eventHandlers[event.lower()] = handler
 
     async def start(self):
-        config = uvicorn.Config(
-            self.app,
-            host=self.host,
-            port=self.port,
-            log_level=self.logLevel
-        )
-        self._server = uvicorn.Server(config)
-        await self._server.serve()
+        config = Config()
+        config.bind = [f"{self.host}:{self.port}"]
+        await serve(self.app, config)
+
 
     async def stop(self):
         # stop server
