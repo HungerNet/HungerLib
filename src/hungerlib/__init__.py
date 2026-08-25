@@ -15,7 +15,6 @@ from .servers import GenericServer, MinecraftServer
 from .bridgeclient import BridgeClient
 from .email import Email, EmailManager, EmailClient
 from .webhook import WebhookClient, WebhookServer
-from .cli import LiveCLI
 from .validator import (
     Validator,
     ValidationError,
@@ -86,7 +85,6 @@ __all__ = [
     'Email',
     'EmailManager',
     'EmailClient',
-    'LiveCLI',
 
     # sub-modules
     'snapSchedule',

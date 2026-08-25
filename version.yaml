@@ -1,5 +1,5 @@
 run: true
-version: '4.24-alpha.30'
+version: '4.24-alpha.31'
 description: |
   Dev 1:
   - Added email features
@@ -75,3 +75,6 @@ description: |
   - Fixed export
   Alpha 26-30:
   - Fixed convert
+  Alpha 31:
+  - Updated dependencies
+  - Removed LiveCLI module (replaced by C2E)  

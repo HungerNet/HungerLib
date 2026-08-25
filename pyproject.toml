@@ -26,7 +26,6 @@ keywords = [
 
 dependencies = [
     "requests",
-    "mcrcon",
     "PyYaml",
     "mapres",
     "jinja2",
