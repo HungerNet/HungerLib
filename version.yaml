@@ -1,5 +1,5 @@
 run: true
-version: '4.24.2'
+version: '4.24.1'
 description: |
-  Stable 1-2:
+  Stable 1:
   - Arbitrary version bump
