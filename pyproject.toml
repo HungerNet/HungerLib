@@ -48,10 +48,10 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/iFamishedX/HungerLib"
-Documentation = "https://github.com/iFamishedX/HungerLib"
-Source = "https://github.com/iFamishedX/HungerLib"
-Issues = "https://github.com/iFamishedX/HungerLib/issues"
+Homepage = "https://github.com/iFamished/HungerLib"
+Documentation = "https://github.com/iFamished/HungerLib"
+Source = "https://github.com/iFamished/HungerLib"
+Issues = "https://github.com/iFamished/HungerLib/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]

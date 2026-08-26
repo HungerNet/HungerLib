@@ -1,5 +1,5 @@
 run: true
-version: '4.24-alpha.33'
+version: '4.24-alpha.34'
 description: |
   Dev 1:
   - Added email features
@@ -82,3 +82,5 @@ description: |
   - Test WebhookServer with hypercorn
   Alpha 33:
   - Revert to uvicorn
+  Alpha 34:
+  - Update github username
