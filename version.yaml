@@ -1,5 +1,5 @@
 run: true
-version: '4.24-alpha.32'
+version: '4.24-alpha.33'
 description: |
   Dev 1:
   - Added email features
@@ -80,3 +80,5 @@ description: |
   - Removed LiveCLI module (replaced by C2E)  
   Alpha 32:
   - Test WebhookServer with hypercorn
+  Alpha 33:
+  - Revert to uvicorn
