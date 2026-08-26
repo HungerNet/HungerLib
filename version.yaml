@@ -1,5 +1,5 @@
 run: true
-version: '4.24-alpha.34'
+version: '4.24-beta.1'
 description: |
   Dev 1:
   - Added email features
@@ -84,3 +84,5 @@ description: |
   - Revert to uvicorn
   Alpha 34:
   - Update github username
+  Beta 1:
+  - Channel update: Beta
