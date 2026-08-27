@@ -1,5 +1,5 @@
 run: true
-version: '4.24.2'
+version: '4.25-dev.1'
 description: |
-  Stable 1-2:
-  - Arbitrary version bump
+  Dev 1:
+  - Update BridgeClient, add log streaming support (HungerBridge update)

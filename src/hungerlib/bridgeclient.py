@@ -1,18 +1,162 @@
 import time
+import threading
+import re
 import requests
 from .utils.exceptions import HungerBridgeError, InvalidLevelError, InvalidModeError
 
 
+class Stream:
+    '''Streaming wrapper for HungerBridge /stream/logs SSE endpoint.'''
+    def __init__(
+        self,
+        base_url: str,
+        headers: dict,
+        history_handler=None,
+        newline_handler=None
+    ):
+        self.url = base_url.rstrip('/') + '/stream/logs'
+        self.headers = headers
+
+        self.history_handler = history_handler or self._default_history_handler
+        self.newline_handler = newline_handler or self._default_newline_handler
+
+        self.raw_stream = []
+        self.sanitized_stream = []
+        self.timestamped_stream = {}
+
+        self._thread = None
+        self._stop_event = None
+        self._session = None
+
+    def _default_history_handler(self, historic_lines: list):
+        for line in historic_lines:
+            clean = self.sanitize(line)
+            ts = self.extractTimestamp(clean)
+            self.raw_stream.append(line)
+            self.sanitized_stream.append(clean)
+            if ts is not None:
+                self.timestamped_stream[ts] = clean
+
+    def _default_newline_handler(self, line: str):
+        clean = self.sanitize(line)
+        ts = self.extractTimestamp(clean)
+        self.raw_stream.append(line)
+        self.sanitized_stream.append(clean)
+        if ts is not None:
+            self.timestamped_stream[ts] = clean
+
+    def connect(self, keepalive: int = 15):
+        if self._thread and self._thread.is_alive():
+            return
+
+        self._stop_event = threading.Event()
+        self._session = requests.Session()
+
+        def _run():
+            history_phase = True
+            history_lines = []
+            history_deadline = time.time() + keepalive
+
+            try:
+                with self._session.get(
+                    self.url,
+                    headers=self.headers,
+                    stream=True
+                ) as r:
+                    if not r.ok:
+                        raise HungerBridgeError(f'HungerBridge error {r.status_code}: {r.text}')
+
+                    for raw in r.iter_lines(decode_unicode=True):
+                        if self._stop_event.is_set():
+                            break
+                        if not raw:
+                            continue
+                        if not raw.startswith('data:'):
+                            continue
+
+                        line = raw[len('data:'):].lstrip()
+
+                        if history_phase:
+                            history_lines.append(line)
+                            if time.time() >= history_deadline:
+                                try:
+                                    self.history_handler(history_lines)
+                                except Exception:
+                                    pass
+                                history_phase = False
+                            continue
+
+                        try:
+                            self.newline_handler(line)
+                        except Exception:
+                            pass
+
+            except Exception as e:
+                raise HungerBridgeError(f'Log stream failed: {e}')
+            finally:
+                if self._session:
+                    try:
+                        self._session.close()
+                    except Exception:
+                        pass
+                self._thread = None
+                self._session = None
+                self._stop_event = None
+
+        self._thread = threading.Thread(
+            target=_run,
+            name='HungerBridgeStream',
+            daemon=True
+        )
+        self._thread.start()
+
+    def disconnect(self):
+        if self._stop_event:
+            self._stop_event.set()
+        if self._session:
+            try:
+                self._session.close()
+            except Exception:
+                pass
+        self._thread = None
+        self._session = None
+        self._stop_event = None
+
+    def isConnected(self) -> bool: return self._thread is not None and self._thread.is_alive()
+
+    def getRaw(self) -> list: return list(self.raw_stream)
+    def getSanitized(self) -> list: return list(self.sanitized_stream)
+    def getTimestamped(self) -> dict: return dict(self.timestamped_stream)
+
+    @staticmethod
+    def sanitize(line: str) -> str:
+        ansi_re = re.compile(r'\x1b\[[0-9;]*m')
+        return ansi_re.sub('', line).rstrip
+
+    @staticmethod
+    def extractTimestamp(line: str):
+        m = re.match(r'\[([0-9]{2}:[0-9]{2}:[0-9]{2})\]', line)
+        if not m:
+            return None
+        return m.group(1)
+
+
 class BridgeClient:
-    '''
-    Python client for the HungerBridge v2 API
-    '''
-    def __init__(self, url: str, token: str):
+    '''Python client for the HungerBridge v2 API'''
+    def __init__(self, url: str, token: str, history_handler=None, newline_handler=None):
         self.base = url.rstrip('/') + '/v2/'
         self.headers = {
             'X-Auth-Key': token,
             'Content-Type': 'application/json'
         }
+
+        self.stream = Stream(
+            base_url=self.base,
+            headers=self.headers,
+
+            history_handler=history_handler,
+            newline_handler=newline_handler
+        )
 
     # internal helpers
     def _post(self, path: str, payload):
