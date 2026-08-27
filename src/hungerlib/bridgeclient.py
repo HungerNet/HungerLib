@@ -312,4 +312,4 @@ class BridgeClient:
             return self._extract(data, 'count')
         if mode == 'list':
             return self._extract(data, 'players')
-        raise InvalidModeError(f'Invalid mode: \'{mode}\'')
+        raise InvalidModeError(f'Invalid mode: \'{mode}\'')s

@@ -125,3 +125,11 @@ class MinecraftServer(GenericServer):
         safe = message.replace('"', '\\"')
         cmd = f'tellraw @a {{"text":"{safe}"}}'
         return self.bridge.runCommand(cmd, show_console=True)
+
+    # stream passthrough methods
+    def connectStream(self, keepalive: int=15): self.bridge.stream.connect(keepalive)
+    def disconnectStream(self): self.bridge.stream.disconnect()
+    def isStreamConnected(self): self.bridge.stream.isConnected()
+    def getRawStream(self): self.bridge.streamgetRaw()
+    def getSanitizedStream(self): self.bridge.stream.getSanitized()
+    def getTimestampedStream(self): self.bridge.stream.getTimestamped()

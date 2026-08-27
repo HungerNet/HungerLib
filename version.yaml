@@ -1,7 +1,9 @@
 run: true
-version: '4.25-dev.2'
+version: '4.25-dev.3'
 description: |
   Dev 1:
   - Update BridgeClient, add log streaming support (HungerBridge update)
   Dev 2:
   - Add paramater passthrough to MinecraftServer
+  Dev 3:
+  - Add passthrough methods to MinecraftServer
