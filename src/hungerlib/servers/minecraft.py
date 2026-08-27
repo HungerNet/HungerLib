@@ -16,8 +16,11 @@ class MinecraftServer(GenericServer):
         server_id: str,
         server_domain: str,
         server_port: int,
+
         bridge_url: str,
         bridge_token: str,
+        history_handler=None,
+        newline_handler=None,
     ):
         super().__init__(
             name,
@@ -30,7 +33,7 @@ class MinecraftServer(GenericServer):
         self.server_port = server_port
 
         # HungerBridge client
-        self.bridge = BridgeClient(bridge_url, bridge_token)
+        self.bridge = BridgeClient(bridge_url, bridge_token, history_handler=history_handler, newline_handler=newline_handler)
 
 
     # basic information properties
