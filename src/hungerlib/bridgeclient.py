@@ -231,9 +231,7 @@ class BridgeClient:
         return None
 
     def log(self, message: str, level: str = 'info') -> dict:
-        '''
-        Logs a message to the server console
-        '''
+        '''Logs a message to the server console'''
         valid_levels = ['info', 'warn', 'error', None]
         if level not in valid_levels:
             raise InvalidLevelError(f'\'{level}\' is not a valid log level')
@@ -250,9 +248,7 @@ class BridgeClient:
 
     # convenience getters
     def getPing(self) -> int:
-        '''
-        Round-trip latency (ms) measured client-side.
-        '''
+        '''Round-trip latency (ms) measured client-side.'''
         start = time.time()
         self.v2_ping()
         end = time.time()
@@ -312,4 +308,4 @@ class BridgeClient:
             return self._extract(data, 'count')
         if mode == 'list':
             return self._extract(data, 'players')
-        raise InvalidModeError(f'Invalid mode: \'{mode}\'')s
+        raise InvalidModeError(f'Invalid mode: \'{mode}\'')
