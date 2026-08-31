@@ -36,15 +36,14 @@ class MinecraftServer(GenericServer):
         self.bridge = BridgeClient(bridge_url, bridge_token, history_handler=history_handler, newline_handler=newline_handler)
 
 
-    # basic information properties
-    @property
-    def bridge_version(self) -> str | None:
+    # basic getter methods
+    def getBridgeVersion(self) -> str | None:
         return self.bridge.getVersion()
-    @property
-    def version(self) -> str | None:
+
+    def getVersion(self) -> str | None:
         return self.bridge.getMinecraftVersion()
-    @property
-    def platform(self) -> str | None:
+
+    def getPlatform(self) -> str | None:
         return self.bridge.getPlatform()
 
 
@@ -57,15 +56,7 @@ class MinecraftServer(GenericServer):
         else:
             raise InvalidModeError(f"Invalid mode: '{mode}'")
 
-    @property
-    def player_count(self) -> int:
-        return self.getPlayers(mode='count') or 0
-    @property
-    def player_list(self) -> list[str]:
-        return self.getPlayers('list') or []
-
-    @property
-    def max_players(self) -> int:
+    def getMaxPlayers(self) -> int:
         '''
         Runs the 'list' command and extracts the max player count.
         Expected format:
@@ -98,10 +89,6 @@ class MinecraftServer(GenericServer):
         if value is None:
             return None
         return round(value, rounding) if rounding is not None else value
-
-    @property
-    def tps(self) -> float | None:
-        return self.getTPS()
 
 
     # commands
