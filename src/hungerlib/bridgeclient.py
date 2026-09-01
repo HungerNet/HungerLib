@@ -46,20 +46,31 @@ class Stream:
             self.timestamped_stream[ts] = clean
 
     def connect(self, keepalive: int = 15):
+        """
+        Connect to the SSE stream. Optionally request recent history lines by
+        passing `history=<n>` which will add the query parameter `?history=n`.
+        """
+        def _build_url_with_history(url: str, history: int | None):
+            if not history:
+                return url
+            sep = '&' if '?' in url else '?'
+            return f"{url}{sep}history={history}"
+
         if self._thread and self._thread.is_alive():
             return
 
         self._stop_event = threading.Event()
         self._session = requests.Session()
 
-        def _run():
+        def _run(history: int | None = None):
             history_phase = True
             history_lines = []
             history_deadline = time.time() + keepalive
 
+            request_url = _build_url_with_history(self.url, history)
             try:
                 with self._session.get(
-                    self.url,
+                    request_url,
                     headers=self.headers,
                     stream=True
                 ) as r:
@@ -105,6 +116,7 @@ class Stream:
 
         self._thread = threading.Thread(
             target=_run,
+            kwargs={"history": None},
             name='HungerBridgeStream',
             daemon=True
         )
@@ -131,7 +143,10 @@ class Stream:
     @staticmethod
     def sanitize(line: str) -> str:
         ansi_re = re.compile(r'\x1b\[[0-9;]*m')
-        return ansi_re.sub('', line).rstrip
+        # remove ANSI sequences, unescape server-escaped newlines, and strip
+        clean = ansi_re.sub('', line)
+        clean = clean.replace('\\n', '\n').replace('\\r', '\r')
+        return clean.rstrip()
 
     @staticmethod
     def extractTimestamp(line: str):
