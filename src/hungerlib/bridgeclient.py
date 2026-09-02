@@ -12,13 +12,13 @@ class Stream:
         base_url: str,
         headers: dict,
         history_handler=None,
-        newline_handler=None
+        new_log_handler=None
     ):
         self.url = base_url.rstrip('/') + '/stream/logs'
         self.headers = headers
 
         self.history_handler = history_handler or self._default_history_handler
-        self.newline_handler = newline_handler or self._default_newline_handler
+        self.new_log_handler = new_log_handler or self._default_new_log_handler
 
         self.raw_stream = []
         self.sanitized_stream = []
@@ -37,7 +37,7 @@ class Stream:
             if ts is not None:
                 self.timestamped_stream[ts] = clean
 
-    def _default_newline_handler(self, line: str):
+    def _default_new_log_handler(self, line: str):
         clean = self.sanitize(line)
         ts = self.extractTimestamp(clean)
         self.raw_stream.append(line)
@@ -103,7 +103,7 @@ class Stream:
                             continue
 
                         try:
-                            self.newline_handler(line)
+                            self.new_log_handler(line)
                         except Exception:
                             pass
 
@@ -169,7 +169,7 @@ class Stream:
 
 class BridgeClient:
     '''Python client for the HungerBridge v2 API'''
-    def __init__(self, url: str, token: str, history_handler=None, newline_handler=None):
+    def __init__(self, url: str, token: str, history_handler=None, new_log_handler=None):
         self.base = url.rstrip('/') + '/v2/'
         self.headers = {
             'X-Auth-Key': token,
@@ -181,7 +181,7 @@ class BridgeClient:
             headers=self.headers,
 
             history_handler=history_handler,
-            newline_handler=newline_handler
+            new_log_handler=new_log_handler
         )
 
     # internal helpers
