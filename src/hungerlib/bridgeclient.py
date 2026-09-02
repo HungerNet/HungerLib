@@ -65,7 +65,10 @@ class Stream:
         def _run(history: int | None = None):
             history_phase = True
             history_lines = []
-            history_deadline = time.time() + keepalive
+            # If the client explicitly requested history, use a short collection
+            # window so the historic lines are dispatched quickly. Otherwise use
+            # the provided keepalive timeout.
+            history_deadline = time.time() + (1.0 if history else keepalive)
 
             request_url = _build_url_with_history(self.url, history)
             try:
@@ -75,7 +78,9 @@ class Stream:
                     stream=True
                 ) as r:
                     if not r.ok:
-                        raise HungerBridgeError(f'HungerBridge error {r.status_code}: {r.text}')
+                        # raise in a background thread would be silent to callers; log and stop
+                        print(f'HungerBridge error {r.status_code}: {r.text}', file=getattr(__import__('sys'), 'stderr'))
+                        return
 
                     for raw in r.iter_lines(decode_unicode=True):
                         if self._stop_event.is_set():
@@ -103,7 +108,13 @@ class Stream:
                             pass
 
             except Exception as e:
-                raise HungerBridgeError(f'Log stream failed: {e}')
+                # Avoid raising inside the background thread (silent). Log instead and stop.
+                try:
+                    import sys
+                    print(f'Log stream failed: {e}', file=sys.stderr)
+                except Exception:
+                    pass
+                return
             finally:
                 if self._session:
                     try:
