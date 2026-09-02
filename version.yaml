@@ -1,5 +1,5 @@
 run: true
-version: '4.25-dev.5'
+version: '4.25-dev.6'
 description: |
   Dev 1:
   - Update BridgeClient, add log streaming support (HungerBridge update)
@@ -11,3 +11,5 @@ description: |
   - Replace MinecraftServer properties with their respective methods (#3)
   Dev 5:
   - HungerBridge compatibility update
+  Dev 6:
+  - Fixed BridgeClient

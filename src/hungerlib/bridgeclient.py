@@ -45,7 +45,7 @@ class Stream:
         if ts is not None:
             self.timestamped_stream[ts] = clean
 
-    def connect(self, keepalive: int = 15):
+    def connect(self, keepalive: int = 15, history: int | None = None):
         """
         Connect to the SSE stream. Optionally request recent history lines by
         passing `history=<n>` which will add the query parameter `?history=n`.
@@ -116,7 +116,7 @@ class Stream:
 
         self._thread = threading.Thread(
             target=_run,
-            kwargs={"history": None},
+            kwargs={"history": history},
             name='HungerBridgeStream',
             daemon=True
         )
