@@ -16,7 +16,7 @@ class Stream:
         base_url: str,
         # headers may be a dict or a callable returning a dict for dynamic
         # per-connection headers (useful for HMAC-signed SSE connections).
-        headers: dict | callable,
+        headers,
         history_handler=None,
         new_log_handler=None
     ):
