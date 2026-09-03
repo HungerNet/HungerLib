@@ -270,6 +270,14 @@ class BridgeClient:
                 headers['X-Auth-Key'] = self._token_raw
         return headers
 
+    # helper for debugging: return headers used for connecting to the stream
+    def get_stream_headers(self) -> dict:
+        """Return the headers the client will use for `GET /stream/logs`.
+
+        Useful for debugging auth problems (clock skew, token parsing, etc.).
+        """
+        return self._build_auth_headers('GET', '/stream/logs', None)
+
     def _extract(self, data, field):
         if not isinstance(data, dict):
             raise HungerBridgeError('_extract() expects a dict response')
