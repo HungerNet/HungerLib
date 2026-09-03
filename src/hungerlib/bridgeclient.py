@@ -412,7 +412,6 @@ class BridgeClient:
 
     def create_token(
         self,
-        self,
         token_id: str | None = None,
         name: str | None = None,
         expiry: int | None = None,
