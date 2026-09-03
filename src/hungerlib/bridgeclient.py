@@ -52,10 +52,10 @@ class Stream:
             self.timestamped_stream[ts] = clean
 
     def connect(self, keepalive: int = 15, history: int | None = None):
-        """
+        '''
         Connect to the SSE stream. Optionally request recent history lines by
         passing `history=<n>` which will add the query parameter `?history=n`.
-        """
+        '''
         def _build_url_with_history(url: str, history: int | None):
             if not history:
                 return url
@@ -181,7 +181,6 @@ class BridgeClient:
     def __init__(self, url: str, token: str | None = None, history_handler=None, new_log_handler=None):
         self.base = url.rstrip('/')
 
-        # token may be legacy plain token or new format: "id:secret"
         self._token_raw = token
         self._token_id = None
         self._token_secret = None
@@ -198,8 +197,6 @@ class BridgeClient:
         # If token is not provided, don't include auth headers by default.
         if self._token_secret:
             header_provider = (lambda: self._build_auth_headers('GET', '/stream/logs', None))
-        elif self._token_raw:
-            header_provider = {**self._static_headers, 'X-Auth-Key': self._token_raw}
         else:
             header_provider = dict(self._static_headers)
 
@@ -265,17 +262,14 @@ class BridgeClient:
                 'X-Auth-Nonce': nonce,
                 'X-Auth-Signature': sig,
             })
-        else:
-            if self._token_raw:
-                headers['X-Auth-Key'] = self._token_raw
         return headers
 
     # helper for debugging: return headers used for connecting to the stream
     def get_stream_headers(self) -> dict:
-        """Return the headers the client will use for `GET /stream/logs`.
+        '''Return the headers the client will use for `GET /stream/logs`.
 
         Useful for debugging auth problems (clock skew, token parsing, etc.).
-        """
+        '''
         return self._build_auth_headers('GET', '/stream/logs', None)
 
     def _extract(self, data, field):
@@ -413,14 +407,27 @@ class BridgeClient:
 
     # --- admin endpoints ---
     def list_tokens(self) -> dict:
-        """List tokens (admin). Returns mapping of token metadata."""
+        '''List tokens (admin). Returns mapping of token metadata.'''
         return self._get('admin/tokens/list')
 
-    def create_token(self, ttl: int = None, whitelist: list | None = None, blacklist: list | None = None) -> dict:
-        """Create a token. Returns {id, secret} on success."""
-        payload = {}
-        if ttl is not None:
-            payload['ttl'] = int(ttl)
+    def create_token(
+        self,
+        self,
+        token_id: str | None = None,
+        name: str | None = None,
+        expiry: int | None = None,
+        whitelist: list | None = None,
+        blacklist: list | None = None,
+    ) -> dict:
+        '''Create a token using the explicit `id`, optional `name`, and optional `expiry`.'''
+        if token_id is None or not str(token_id).strip():
+            raise HungerBridgeError('token_id is required')
+
+        payload = {'id': str(token_id)}
+        if name is not None and str(name).strip():
+            payload['name'] = str(name)
+        if expiry is not None:
+            payload['expiry'] = int(expiry)
         if whitelist is not None:
             payload['whitelist'] = whitelist
         if blacklist is not None:
@@ -428,30 +435,27 @@ class BridgeClient:
         return self._post('admin/tokens/create', payload)
 
     def revoke_token(self, token_id: str) -> dict:
-        """Revoke a token by id."""
+        '''Revoke a token by id.'''
         return self._post('admin/tokens/revoke', {'id': token_id})
 
     def rotate_token(self, token_id: str) -> dict:
-        """Rotate a token secret; returns new id/secret pair."""
+        '''Rotate a token secret; returns new id/secret pair.'''
         return self._post('admin/tokens/rotate', {'id': token_id})
 
     def admin_status(self) -> dict:
-        """Get admin/status info (rate limits, ACLs, probe status)."""
+        '''Get admin/status info (rate limits, ACLs).'''
         return self._get('admin/status')
 
-    def run_probe(self) -> dict:
-        """Run a manual self-probe against configured public_base_url."""
-        return self._get('admin/probe')
 
     def ip_status(self) -> dict:
-        """Get configured IP whitelist/blacklist."""
+        '''Get configured IP whitelist/blacklist.'''
         return self._get('admin/ip')
 
     def get_audit(self, n: int = 20) -> list:
-        """Get last N audit log lines."""
+        '''Get last N audit log lines.'''
         # audit endpoint expects ?n=<int>
         return self._get(f'admin/audit?n={int(n)}')
 
     def reload_config(self) -> dict:
-        """Trigger config reload on server."""
+        '''Trigger config reload on server.'''
         return self._post('admin/reload', {})
