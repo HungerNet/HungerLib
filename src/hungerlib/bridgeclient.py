@@ -2,6 +2,10 @@ import time
 import threading
 import re
 import requests
+import hmac
+import hashlib
+import json
+import uuid
 from .utils.exceptions import HungerBridgeError, InvalidLevelError, InvalidModeError
 
 
@@ -10,7 +14,9 @@ class Stream:
     def __init__(
         self,
         base_url: str,
-        headers: dict,
+        # headers may be a dict or a callable returning a dict for dynamic
+        # per-connection headers (useful for HMAC-signed SSE connections).
+        headers: dict | callable,
         history_handler=None,
         new_log_handler=None
     ):
@@ -72,9 +78,12 @@ class Stream:
 
             request_url = _build_url_with_history(self.url, history)
             try:
+                # allow headers to be a callable so the client can provide
+                # fresh signed headers at connect time
+                req_headers = self.headers() if callable(self.headers) else self.headers
                 with self._session.get(
                     request_url,
-                    headers=self.headers,
+                    headers=req_headers,
                     stream=True
                 ) as r:
                     if not r.ok:
@@ -168,25 +177,44 @@ class Stream:
 
 
 class BridgeClient:
-    '''Python client for the HungerBridge v2 API'''
-    def __init__(self, url: str, token: str, history_handler=None, new_log_handler=None):
-        self.base = url.rstrip('/') + '/v2/'
-        self.headers = {
-            'X-Auth-Key': token,
-            'Content-Type': 'application/json'
+    '''Python client for the HungerBridge API with optional HMAC-signed tokens.'''
+    def __init__(self, url: str, token: str | None = None, history_handler=None, new_log_handler=None):
+        self.base = url.rstrip('/')
+
+        # token may be legacy plain token or new format: "id:secret"
+        self._token_raw = token
+        self._token_id = None
+        self._token_secret = None
+        parsed = self._parse_token(token)
+        if parsed:
+            self._token_id = parsed.get('id')
+            self._token_secret = parsed.get('secret')
+
+        self._static_headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
         }
+
+        # If token is not provided, don't include auth headers by default.
+        if self._token_secret:
+            header_provider = (lambda: self._build_auth_headers('GET', '/stream/logs', None))
+        elif self._token_raw:
+            header_provider = {**self._static_headers, 'X-Auth-Key': self._token_raw}
+        else:
+            header_provider = dict(self._static_headers)
 
         self.stream = Stream(
             base_url=self.base,
-            headers=self.headers,
-
+            headers=header_provider,
             history_handler=history_handler,
             new_log_handler=new_log_handler
         )
 
     # internal helpers
     def _post(self, path: str, payload):
-        r = requests.post(self.base + path, headers=self.headers, json=payload)
+        full_path = '/' + path
+        headers = self._build_auth_headers('POST', full_path, payload)
+        r = requests.post(self.base + '/' + path, headers=headers, json=payload)
         if not r.ok:
             raise HungerBridgeError(f'HungerBridge error {r.status_code}: {r.text}')
         try:
@@ -195,7 +223,9 @@ class BridgeClient:
             return r.text
 
     def _get(self, path: str):
-        r = requests.get(self.base + path, headers=self.headers)
+        full_path = '/' + path
+        headers = self._build_auth_headers('GET', full_path, None)
+        r = requests.get(self.base + '/' + path, headers=headers)
         if not r.ok:
             raise HungerBridgeError(f'HungerBridge error {r.status_code}: {r.text}')
         try:
@@ -203,25 +233,62 @@ class BridgeClient:
         except Exception:
             return r.text
 
+    def _parse_token(self, token: str):
+        if not isinstance(token, str):
+            return None
+        if ':' not in token:
+            return None
+        parts = token.split(':', 1)
+        if len(parts) != 2 or not parts[0] or not parts[1]:
+            return None
+        return {'id': parts[0], 'secret': parts[1]}
+
+    def _build_auth_headers(self, method: str, path: str, body):
+        headers = dict(self._static_headers)
+        if self._token_secret and self._token_id:
+            timestamp = str(int(time.time()))
+            nonce = uuid.uuid4().hex
+
+            body_str = ''
+            if body is not None:
+                try:
+                    body_str = json.dumps(body, separators=(',', ':'), sort_keys=True)
+                except Exception:
+                    body_str = str(body)
+
+            msg = f"{method.upper()}\n{path}\n{timestamp}\n{nonce}\n{body_str}"
+            sig = hmac.new(self._token_secret.encode('utf-8'), msg.encode('utf-8'), hashlib.sha256).hexdigest()
+
+            headers.update({
+                'X-Auth-Token-Id': self._token_id,
+                'X-Auth-Timestamp': timestamp,
+                'X-Auth-Nonce': nonce,
+                'X-Auth-Signature': sig,
+            })
+        else:
+            if self._token_raw:
+                headers['X-Auth-Key'] = self._token_raw
+        return headers
+
     def _extract(self, data, field):
         if not isinstance(data, dict):
             raise HungerBridgeError('_extract() expects a dict response')
         return data.get(field)
 
     # raw endpoints
-    def v2_ping(self) -> dict:
+    def ping(self) -> dict:
         return self._get('ping')
 
-    def v2_info(self) -> dict:
+    def info(self) -> dict:
         return self._get('info')
 
-    def v2_status(self) -> dict:
+    def status(self) -> dict:
         return self._get('status')
 
-    def v2_tps(self) -> dict:
+    def tps(self) -> dict:
         return self._get('tps')
 
-    def v2_players(self) -> dict:
+    def players(self) -> dict:
         return self._get('players')
 
     # public api
@@ -276,31 +343,31 @@ class BridgeClient:
     def getPing(self) -> int:
         '''Round-trip latency (ms) measured client-side.'''
         start = time.time()
-        self.v2_ping()
+        self.ping()
         end = time.time()
         return int((end - start) * 1000)
 
     def getVersion(self) -> str | None:
         '''Returns HungerBridge version'''
-        info = self.v2_info()
+        info = self.info()
         bridge = self._extract(info, 'bridge')
         return bridge.get('version') if isinstance(bridge, dict) else None
 
     def getPlatform(self) -> str | None:
         '''Returns server platform'''
-        info = self.v2_info()
+        info = self.info()
         bridge = self._extract(info, 'bridge')
         return bridge.get('platform') if isinstance(bridge, dict) else None
 
     def getMinecraftVersion(self) -> str | None:
         '''Returns Minecraft version'''
-        info = self.v2_info()
+        info = self.info()
         bridge = self._extract(info, 'bridge')
         return bridge.get('minecraft') if isinstance(bridge, dict) else None
 
     def getStatus(self) -> bool:
         '''Validates connection status'''
-        return self._extract(self.v2_status(), 'ok')
+        return self._extract(self.status(), 'ok')
 
     def getTPS(self, mode: str = 'current') -> float:
         '''
@@ -310,7 +377,7 @@ class BridgeClient:
         - 5m:        EMA6000
         - tick_time: avg tick time (ms)
         '''
-        data = self.v2_tps()
+        data = self.tps()
         if mode == 'current':
             return self._extract(data, 'tps')
         if mode == '1m':
@@ -328,10 +395,55 @@ class BridgeClient:
         - count: number of players
         - list: list of player names
         '''
-        data = self.v2_players()
+        data = self.players()
 
         if mode == 'count':
             return self._extract(data, 'count')
         if mode == 'list':
             return self._extract(data, 'players')
         raise InvalidModeError(f'Invalid mode: \'{mode}\'')
+
+    # --- admin endpoints ---
+    def list_tokens(self) -> dict:
+        """List tokens (admin). Returns mapping of token metadata."""
+        return self._get('admin/tokens/list')
+
+    def create_token(self, ttl: int = None, whitelist: list | None = None, blacklist: list | None = None) -> dict:
+        """Create a token. Returns {id, secret} on success."""
+        payload = {}
+        if ttl is not None:
+            payload['ttl'] = int(ttl)
+        if whitelist is not None:
+            payload['whitelist'] = whitelist
+        if blacklist is not None:
+            payload['blacklist'] = blacklist
+        return self._post('admin/tokens/create', payload)
+
+    def revoke_token(self, token_id: str) -> dict:
+        """Revoke a token by id."""
+        return self._post('admin/tokens/revoke', {'id': token_id})
+
+    def rotate_token(self, token_id: str) -> dict:
+        """Rotate a token secret; returns new id/secret pair."""
+        return self._post('admin/tokens/rotate', {'id': token_id})
+
+    def admin_status(self) -> dict:
+        """Get admin/status info (rate limits, ACLs, probe status)."""
+        return self._get('admin/status')
+
+    def run_probe(self) -> dict:
+        """Run a manual self-probe against configured public_base_url."""
+        return self._get('admin/probe')
+
+    def ip_status(self) -> dict:
+        """Get configured IP whitelist/blacklist."""
+        return self._get('admin/ip')
+
+    def get_audit(self, n: int = 20) -> list:
+        """Get last N audit log lines."""
+        # audit endpoint expects ?n=<int>
+        return self._get(f'admin/audit?n={int(n)}')
+
+    def reload_config(self) -> dict:
+        """Trigger config reload on server."""
+        return self._post('admin/reload', {})

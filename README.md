@@ -1,6 +1,6 @@
 # HungerLib
 
-A powerful automation library for Pterodactyl panlels.
+A powerful automation library for Pterodactyl panels.
 Provides clean APIs for RCON, scheduling, panel integration, and server orchestration.
 
 ## Features
@@ -16,3 +16,19 @@ Provides clean APIs for RCON, scheduling, panel integration, and server orchestr
 
 ```bash
 pip install hungerlib
+```
+
+## HungerBridge client
+
+The `BridgeClient` talks to the HungerBridge API at the root URL, using endpoints such as `/ping`, `/info`, `/status`, `/tps`, `/players`, `/run`, `/log`, `/stream/logs`, and the admin routes under `/admin/...`.
+
+```python
+from hungerlib.bridgeclient import BridgeClient
+
+client = BridgeClient('http://localhost:1913', 'abcd1234:secret')
+print(client.getPing())
+print(client.runCommand('say hello'))
+print(client.list_tokens())
+```
+
+The client exposes root-level methods like `ping()`, `info()`, `status()`, `tps()`, and `players()`, without any `/v2` path prefix.

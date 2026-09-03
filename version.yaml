@@ -1,5 +1,5 @@
 run: true
-version: '4.25-dev.8'
+version: '4.25-dev.9'
 description: |
   Dev 1:
   - Update BridgeClient, add log streaming support (HungerBridge update)
@@ -15,3 +15,5 @@ description: |
   - Fixed BridgeClient
   Dev 8:
   - Renamed newline_handler to new_log_handler
+  Dev 9:
+  - Updated BridgeClient to match new HungerBridge version
