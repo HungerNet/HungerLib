@@ -178,25 +178,28 @@ class Stream:
 
 class BridgeClient:
     '''Python client for the HungerBridge API with optional HMAC-signed tokens.'''
-    def __init__(self, url: str, token: str | None = None, history_handler=None, new_log_handler=None):
+    def __init__(
+        self,
+        url: str,
+        token_id: str | None = None,
+        token_secret: str | None = None,
+        history_handler=None,
+        new_log_handler=None
+    ):
         self.base = url.rstrip('/')
 
-        self._token_raw = token
-        self._token_id = None
-        self._token_secret = None
-        parsed = self._parse_token(token)
-        if parsed:
-            self._token_id = parsed.get('id')
-            self._token_secret = parsed.get('secret')
+        # HKIM-only: explicit token_id + token_secret
+        self._token_id = token_id
+        self._token_secret = token_secret
 
         self._static_headers = {
             'Content-Type': 'application/json',
             'Accept': 'application/json'
         }
 
-        # If token is not provided, don't include auth headers by default.
-        if self._token_secret:
-            header_provider = (lambda: self._build_auth_headers('GET', '/stream/logs', None))
+        # If token is provided, use HMAC-signed headers for SSE
+        if self._token_id and self._token_secret:
+            header_provider = lambda: self._build_auth_headers('GET', '/stream/logs', None)
         else:
             header_provider = dict(self._static_headers)
 
@@ -229,16 +232,6 @@ class BridgeClient:
             return r.json()
         except Exception:
             return r.text
-
-    def _parse_token(self, token: str):
-        if not isinstance(token, str):
-            return None
-        if ':' not in token:
-            return None
-        parts = token.split(':', 1)
-        if len(parts) != 2 or not parts[0] or not parts[1]:
-            return None
-        return {'id': parts[0], 'secret': parts[1]}
 
     def _build_auth_headers(self, method: str, path: str, body):
         headers = dict(self._static_headers)
