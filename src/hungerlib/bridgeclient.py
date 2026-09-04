@@ -401,38 +401,38 @@ class BridgeClient:
     # --- admin endpoints ---
     def list_tokens(self) -> dict:
         '''List tokens (admin). Returns mapping of token metadata.'''
-        return self._get('admin/tokens/list')
+        return self._get('admin/token/list')
 
     def create_token(
         self,
-        token_id: str | None = None,
-        name: str | None = None,
+        policy_id: str,
+        token_id: str,
         expiry: int | None = None,
         whitelist: list | None = None,
         blacklist: list | None = None,
     ) -> dict:
-        '''Create a token using the explicit `id`, optional `name`, and optional `expiry`.'''
+        '''Create a token using `policy_id` and explicit `token_id` (expiry optional).'''
+        if policy_id is None or not str(policy_id).strip():
+            raise HungerBridgeError('policy_id is required')
         if token_id is None or not str(token_id).strip():
             raise HungerBridgeError('token_id is required')
 
-        payload = {'id': str(token_id)}
-        if name is not None and str(name).strip():
-            payload['name'] = str(name)
+        payload = {'policyId': str(policy_id), 'tokenId': str(token_id)}
         if expiry is not None:
             payload['expiry'] = int(expiry)
         if whitelist is not None:
             payload['whitelist'] = whitelist
         if blacklist is not None:
             payload['blacklist'] = blacklist
-        return self._post('admin/tokens/create', payload)
+        return self._post('admin/token/create', payload)
 
     def revoke_token(self, token_id: str) -> dict:
         '''Revoke a token by id.'''
-        return self._post('admin/tokens/revoke', {'id': token_id})
+        return self._post('admin/token/revoke', {'id': token_id})
 
     def rotate_token(self, token_id: str) -> dict:
         '''Rotate a token secret; returns new id/secret pair.'''
-        return self._post('admin/tokens/rotate', {'id': token_id})
+        return self._post('admin/token/rotate', {'id': token_id})
 
     def admin_status(self) -> dict:
         '''Get admin/status info (rate limits, ACLs).'''
@@ -451,3 +451,7 @@ class BridgeClient:
     def reload_config(self) -> dict:
         '''Trigger config reload on server.'''
         return self._post('admin/reload', {})
+
+    def auth_check(self) -> dict:
+        '''Check permissions for the token used to make the request (GET /auth/check).'''
+        return self._get('auth/check')
