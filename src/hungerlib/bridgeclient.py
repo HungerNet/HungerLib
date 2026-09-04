@@ -247,7 +247,13 @@ class BridgeClient:
                     body_str = str(body)
 
             msg = f"{method.upper()}\n{path}\n{timestamp}\n{nonce}\n{body_str}"
-            sig = hmac.new(self._token_secret.encode('utf-8'), msg.encode('utf-8'), hashlib.sha256).hexdigest()
+            # token_secret is a hex string of the raw key bytes (server exposes hex);
+            # decode if possible to use raw bytes as HMAC key. Fall back to raw utf-8.
+            try:
+                key_bytes = bytes.fromhex(self._token_secret)
+            except Exception:
+                key_bytes = self._token_secret.encode('utf-8')
+            sig = hmac.new(key_bytes, msg.encode('utf-8'), hashlib.sha256).hexdigest()
 
             headers.update({
                 'X-Auth-Token-Id': self._token_id,
