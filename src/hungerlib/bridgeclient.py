@@ -20,7 +20,7 @@ class Stream:
         history_handler=None,
         new_log_handler=None
     ):
-        self.url = base_url.rstrip('/') + '/stream/logs'
+        self.url = base_url.rstrip('/') + '/server/stream/logs'
         self.headers = headers
 
         self.history_handler = history_handler or self._default_history_handler
@@ -199,7 +199,7 @@ class BridgeClient:
 
         # If token is provided, use HMAC-signed headers for SSE
         if self._token_id and self._token_secret:
-            header_provider = lambda: self._build_auth_headers('GET', '/stream/logs', None)
+            header_provider = lambda: self._build_auth_headers('GET', '/server/stream/logs', None)
         else:
             header_provider = dict(self._static_headers)
 
@@ -269,7 +269,7 @@ class BridgeClient:
 
         Useful for debugging auth problems (clock skew, token parsing, etc.).
         '''
-        return self._build_auth_headers('GET', '/stream/logs', None)
+        return self._build_auth_headers('GET', '/server/stream/logs', None)
 
     def _extract(self, data, field):
         if not isinstance(data, dict):
@@ -278,19 +278,19 @@ class BridgeClient:
 
     # raw endpoints
     def ping(self) -> dict:
-        return self._get('ping')
+        return self._get('server/ping')
 
     def info(self) -> dict:
-        return self._get('info')
+        return self._get('server/info')
 
     def status(self) -> dict:
-        return self._get('status')
+        return self._get('server/status')
 
     def tps(self) -> dict:
-        return self._get('tps')
+        return self._get('server/tps')
 
     def players(self) -> dict:
-        return self._get('players')
+        return self._get('server/players')
 
     # public api
     def runCommand(
@@ -304,7 +304,7 @@ class BridgeClient:
         Execute a command on the server.
         Returns normalized output unless normalize=False.
         '''
-        data = self._post('run', {
+        data = self._post('server/run', {
             'command': command,
             'silent': silent,
             'show_console': show_console
@@ -330,12 +330,12 @@ class BridgeClient:
         if level not in valid_levels:
             raise InvalidLevelError(f'\'{level}\' is not a valid log level')
         if level is not None:
-            return self._post('log', {
+            return self._post('server/log', {
                 'level': level,
                 'message': message
             })
         no_level_message = ('\b' * 20) + message
-        return self._post('log', {
+        return self._post('server/log', {
             'level': 'info',
             'message': no_level_message
         })
