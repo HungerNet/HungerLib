@@ -1,5 +1,5 @@
 run: true
-version: '4.25-dev.17'
+version: '4.25-dev.18'
 description: |
   Dev 1:
   - Update BridgeClient, add log streaming support (HungerBridge update)
@@ -23,5 +23,5 @@ description: |
   - Updated BridgeClient to match new HungerBridge version
   Dev 13-14:
   - Fix BridgeClient
-  Dev 15-17:
+  Dev 15-18:
   - Updated BridgeClient to use new HKIM signature
