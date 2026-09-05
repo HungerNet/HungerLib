@@ -201,7 +201,20 @@ class BridgeClient:
     ):
         self.base = url.rstrip('/')
 
-        # HKIM-only: explicit token_id + token_secret
+        # Accept either:
+        #  - BridgeClient(url, token_id='root', token_secret='...')
+        #  - BridgeClient(url, 'root:secret')
+        #  - BridgeClient(url, bridge_token='root:secret') through the caller
+        if isinstance(token_id, str) and token_id.lstrip().startswith('{'):
+            raise HungerBridgeError(
+                'Invalid token format: token must be a raw "id:secret" string, not the JSON from tokens.json. '
+                'The server never stores the plaintext secret in tokens.json; only the salt is stored.'
+            )
+        if token_secret is None and isinstance(token_id, str) and ':' in token_id:
+            split = token_id.split(':', 1)
+            if len(split) == 2 and split[0] and split[1]:
+                token_id, token_secret = split
+
         self._token_id = token_id
         self._token_secret = token_secret
 
@@ -228,8 +241,16 @@ class BridgeClient:
     # internal helpers
     def _post(self, path: str, payload):
         full_path = '/' + path
+        # Serialize body in the canonical form used for signing, and send
+        # the exact bytes so the server verifies the same message we signed.
+        body_str = ''
+        if payload is not None:
+            try:
+                body_str = json.dumps(payload, separators=(',', ':'), sort_keys=True)
+            except Exception:
+                body_str = str(payload)
         headers = self._build_auth_headers('POST', full_path, payload)
-        r = requests.post(self.base + '/' + path, headers=headers, json=payload)
+        r = requests.post(self.base + '/' + path, headers=headers, data=body_str)
         if not r.ok:
             raise HungerBridgeError(f'HungerBridge error {r.status_code}: {r.text}')
         try:

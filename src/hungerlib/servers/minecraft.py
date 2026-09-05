@@ -33,7 +33,12 @@ class MinecraftServer(GenericServer):
         self.server_port = server_port
 
         # HungerBridge client
-        self.bridge = BridgeClient(bridge_url, bridge_token, history_handler=history_handler, new_log_handler=new_log_handler)
+        self.bridge = BridgeClient(
+            bridge_url,
+            token_id=bridge_token,
+            history_handler=history_handler,
+            new_log_handler=new_log_handler,
+        )
 
 
     # basic getter methods
