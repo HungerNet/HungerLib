@@ -10,7 +10,7 @@ from .utils.exceptions import HungerBridgeError, InvalidLevelError, InvalidModeE
 
 
 class Stream:
-    '''Streaming wrapper for HungerBridge /stream/logs SSE endpoint.'''
+    '''Streaming wrapper for the HungerBridge SSE log endpoint.'''
     def __init__(
         self,
         base_url: str,
@@ -20,7 +20,8 @@ class Stream:
         history_handler=None,
         new_log_handler=None
     ):
-        self.url = base_url.rstrip('/') + '/server/stream/logs'
+        self.url = base_url.rstrip('/') + '/server/stream'
+        self.legacy_url = base_url.rstrip('/') + '/server/stream/logs'
         self.headers = headers
 
         self.history_handler = history_handler or self._default_history_handler
@@ -71,53 +72,65 @@ class Stream:
         def _run(history: int | None = None):
             history_phase = True
             history_lines = []
-            # If the client explicitly requested history, use a short collection
-            # window so the historic lines are dispatched quickly. Otherwise use
-            # the provided keepalive timeout.
             history_deadline = time.time() + (1.0 if history else keepalive)
 
             request_url = _build_url_with_history(self.url, history)
+            legacy_request_url = _build_url_with_history(self.legacy_url, history)
             try:
-                # allow headers to be a callable so the client can provide
-                # fresh signed headers at connect time
                 req_headers = self.headers() if callable(self.headers) else self.headers
-                with self._session.get(
-                    request_url,
-                    headers=req_headers,
-                    stream=True
-                ) as r:
-                    if not r.ok:
-                        # raise in a background thread would be silent to callers; log and stop
-                        print(f'HungerBridge error {r.status_code}: {r.text}', file=getattr(__import__('sys'), 'stderr'))
-                        return
 
-                    for raw in r.iter_lines(decode_unicode=True):
-                        if self._stop_event.is_set():
-                            break
-                        if not raw:
-                            continue
-                        if not raw.startswith('data:'):
-                            continue
+                try:
+                    with self._session.get(request_url, headers=req_headers, stream=True) as r:
+                        if not r.ok:
+                            raise requests.HTTPError(f'{r.status_code}: {r.text}')
+                        for raw in r.iter_lines(decode_unicode=True):
+                            if self._stop_event.is_set():
+                                break
+                            if not raw or not raw.startswith('data:'):
+                                continue
 
-                        line = raw[len('data:'):].lstrip()
+                            line = raw[len('data:'):].lstrip()
+                            if history_phase:
+                                history_lines.append(line)
+                                if time.time() >= history_deadline:
+                                    try:
+                                        self.history_handler(history_lines)
+                                    except Exception:
+                                        pass
+                                    history_phase = False
+                                continue
 
-                        if history_phase:
-                            history_lines.append(line)
-                            if time.time() >= history_deadline:
-                                try:
-                                    self.history_handler(history_lines)
-                                except Exception:
-                                    pass
-                                history_phase = False
-                            continue
+                            try:
+                                self.new_log_handler(line)
+                            except Exception:
+                                pass
+                except requests.RequestException:
+                    with self._session.get(legacy_request_url, headers=req_headers, stream=True) as r:
+                        if not r.ok:
+                            print(f'HungerBridge error {r.status_code}: {r.text}', file=getattr(__import__('sys'), 'stderr'))
+                            return
+                        for raw in r.iter_lines(decode_unicode=True):
+                            if self._stop_event.is_set():
+                                break
+                            if not raw or not raw.startswith('data:'):
+                                continue
 
-                        try:
-                            self.new_log_handler(line)
-                        except Exception:
-                            pass
+                            line = raw[len('data:'):].lstrip()
+                            if history_phase:
+                                history_lines.append(line)
+                                if time.time() >= history_deadline:
+                                    try:
+                                        self.history_handler(history_lines)
+                                    except Exception:
+                                        pass
+                                    history_phase = False
+                                continue
 
+                            try:
+                                self.new_log_handler(line)
+                            except Exception:
+                                pass
             except Exception as e:
-                # Avoid raising inside the background thread (silent). Log instead and stop.
                 try:
                     import sys
                     print(f'Log stream failed: {e}', file=sys.stderr)
@@ -197,9 +210,11 @@ class BridgeClient:
             'Accept': 'application/json'
         }
 
-        # If token is provided, use HMAC-signed headers for SSE
+        # If token is provided, use HMAC-signed headers for SSE.
+        # The authoritative v3 route is /server/stream; the legacy /server/stream/logs
+        # form remains accepted for compatibility.
         if self._token_id and self._token_secret:
-            header_provider = lambda: self._build_auth_headers('GET', '/server/stream/logs', None)
+            header_provider = lambda: self._build_auth_headers('GET', '/server/stream', None)
         else:
             header_provider = dict(self._static_headers)
 
@@ -263,13 +278,29 @@ class BridgeClient:
             })
         return headers
 
+    def _get_with_fallback(self, primary_path: str, legacy_path: str | None = None):
+        try:
+            return self._get(primary_path)
+        except HungerBridgeError:
+            if legacy_path and legacy_path != primary_path:
+                return self._get(legacy_path)
+            raise
+
+    def _post_with_fallback(self, primary_path: str, payload, legacy_path: str | None = None):
+        try:
+            return self._post(primary_path, payload)
+        except HungerBridgeError:
+            if legacy_path and legacy_path != primary_path:
+                return self._post(legacy_path, payload)
+            raise
+
     # helper for debugging: return headers used for connecting to the stream
     def get_stream_headers(self) -> dict:
-        '''Return the headers the client will use for `GET /stream/logs`.
+        '''Return the headers the client will use for the SSE stream.
 
         Useful for debugging auth problems (clock skew, token parsing, etc.).
         '''
-        return self._build_auth_headers('GET', '/server/stream/logs', None)
+        return self._build_auth_headers('GET', '/server/stream', None)
 
     def _extract(self, data, field):
         if not isinstance(data, dict):
@@ -278,19 +309,75 @@ class BridgeClient:
 
     # raw endpoints
     def ping(self) -> dict:
-        return self._get('server/ping')
+        return self._get_with_fallback('ping', 'server/ping')
 
     def info(self) -> dict:
-        return self._get('server/info')
+        return self._get_with_fallback('server/info')
 
     def status(self) -> dict:
-        return self._get('server/status')
+        return self._get_with_fallback('server/status')
 
     def tps(self) -> dict:
-        return self._get('server/tps')
+        return self._get_with_fallback('tps', 'server/tps')
 
     def players(self) -> dict:
-        return self._get('server/players')
+        return self._get_with_fallback('players', 'server/players')
+
+    def server_meta(self) -> dict:
+        return self._get_with_fallback('server/meta')
+
+    def system_uptime(self) -> dict:
+        return self._get('system/uptime')
+
+    def system_cpu(self) -> dict:
+        return self._get('system/cpu')
+
+    def system_memory(self) -> dict:
+        return self._get('system/memory')
+
+    def system_disk(self) -> dict:
+        return self._get('system/disk')
+
+    def players_list(self) -> dict:
+        return self._get('players/list')
+
+    def player_kick(self, player: str, reason: str | None = None) -> dict:
+        payload = {'player': player}
+        if reason is not None:
+            payload['reason'] = reason
+        return self._post('players/kick', payload)
+
+    def player_ban(self, player: str, reason: str | None = None, duration: int | None = None) -> dict:
+        payload = {'player': player}
+        if reason is not None:
+            payload['reason'] = reason
+        if duration is not None:
+            payload['duration'] = int(duration)
+        return self._post('players/ban', payload)
+
+    def world_tps(self) -> dict:
+        return self._get('world/tps')
+
+    def world_mspt(self) -> dict:
+        return self._get('world/mspt')
+
+    def world_chunks(self) -> dict:
+        return self._get('world/chunks')
+
+    def world_time(self) -> dict:
+        return self._get('world/time')
+
+    def world_weather(self) -> dict:
+        return self._get('world/weather')
+
+    def world_event_join(self) -> dict:
+        return self._get('world/events/join')
+
+    def world_event_leave(self) -> dict:
+        return self._get('world/events/leave')
+
+    def world_event_chat(self) -> dict:
+        return self._get('world/events/chat')
 
     # public api
     def runCommand(
@@ -339,6 +426,37 @@ class BridgeClient:
             'level': 'info',
             'message': no_level_message
         })
+
+    def stop_server(self) -> dict:
+        return self._post('server/stop', {})
+
+    def restart_server(self) -> dict:
+        return self._post('server/restart', {})
+
+    def admin_status(self) -> dict:
+        '''Get admin/status info (rate limits, ACLs).'''
+        return self._get('admin/status')
+
+    def reload_config(self) -> dict:
+        '''Trigger config reload on server.'''
+        return self._post('admin/reload', {})
+
+    def admin_audit(self, n: int = 20) -> list:
+        '''Get last N audit log lines.'''
+        return self._get(f'admin/audit?n={int(n)}')
+
+    def purge_audit(self) -> dict:
+        return self._post('admin/audit/purge', {})
+
+    def config_get(self, section: str) -> dict:
+        if section not in {'main', 'security', 'tokens'}:
+            raise ValueError("section must be one of: main, security, tokens")
+        return self._get(f'admin/config/get/{section}')
+
+    def config_update(self, section: str, payload: dict) -> dict:
+        if section not in {'main', 'security', 'tokens'}:
+            raise ValueError("section must be one of: main, security, tokens")
+        return self._post(f'admin/config/update/{section}', payload)
 
     # convenience getters
     def getPing(self) -> int:
@@ -409,6 +527,9 @@ class BridgeClient:
         '''List tokens (admin). Returns mapping of token metadata.'''
         return self._get('admin/token/list')
 
+    def token_meta(self) -> dict:
+        return self._get('admin/token/meta')
+
     def create_token(
         self,
         policy_id: str,
@@ -436,14 +557,13 @@ class BridgeClient:
         '''Revoke a token by id.'''
         return self._post('admin/token/revoke', {'id': token_id})
 
+    def remove_token(self, token_id: str) -> dict:
+        '''Remove a token from storage permanently.'''
+        return self._post('admin/token/remove', {'id': token_id})
+
     def rotate_token(self, token_id: str) -> dict:
         '''Rotate a token secret; returns new id/secret pair.'''
         return self._post('admin/token/rotate', {'id': token_id})
-
-    def admin_status(self) -> dict:
-        '''Get admin/status info (rate limits, ACLs).'''
-        return self._get('admin/status')
-
 
     def ip_status(self) -> dict:
         '''Get configured IP whitelist/blacklist.'''
@@ -453,10 +573,6 @@ class BridgeClient:
         '''Get last N audit log lines.'''
         # audit endpoint expects ?n=<int>
         return self._get(f'admin/audit?n={int(n)}')
-
-    def reload_config(self) -> dict:
-        '''Trigger config reload on server.'''
-        return self._post('admin/reload', {})
 
     def auth_check(self) -> dict:
         '''Check permissions for the token used to make the request (GET /auth/check).'''
