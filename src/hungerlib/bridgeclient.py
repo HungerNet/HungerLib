@@ -21,7 +21,6 @@ class Stream:
         new_log_handler=None
     ):
         self.url = base_url.rstrip('/') + '/server/stream'
-        self.legacy_url = base_url.rstrip('/') + '/server/stream/logs'
         self.headers = headers
 
         self.history_handler = history_handler or self._default_history_handler
@@ -75,61 +74,32 @@ class Stream:
             history_deadline = time.time() + (1.0 if history else keepalive)
 
             request_url = _build_url_with_history(self.url, history)
-            legacy_request_url = _build_url_with_history(self.legacy_url, history)
             try:
                 req_headers = self.headers() if callable(self.headers) else self.headers
+                with self._session.get(request_url, headers=req_headers, stream=True) as r:
+                    if not r.ok:
+                        raise requests.HTTPError(f'{r.status_code}: {r.text}')
+                    for raw in r.iter_lines(decode_unicode=True):
+                        if self._stop_event.is_set():
+                            break
+                        if not raw or not raw.startswith('data:'):
+                            continue
 
-                try:
-                    with self._session.get(request_url, headers=req_headers, stream=True) as r:
-                        if not r.ok:
-                            raise requests.HTTPError(f'{r.status_code}: {r.text}')
-                        for raw in r.iter_lines(decode_unicode=True):
-                            if self._stop_event.is_set():
-                                break
-                            if not raw or not raw.startswith('data:'):
-                                continue
+                        line = raw[len('data:'):].lstrip()
+                        if history_phase:
+                            history_lines.append(line)
+                            if time.time() >= history_deadline:
+                                try:
+                                    self.history_handler(history_lines)
+                                except Exception:
+                                    pass
+                                history_phase = False
+                            continue
 
-                            line = raw[len('data:'):].lstrip()
-                            if history_phase:
-                                history_lines.append(line)
-                                if time.time() >= history_deadline:
-                                    try:
-                                        self.history_handler(history_lines)
-                                    except Exception:
-                                        pass
-                                    history_phase = False
-                                continue
-
-                            try:
-                                self.new_log_handler(line)
-                            except Exception:
-                                pass
-                except requests.RequestException:
-                    with self._session.get(legacy_request_url, headers=req_headers, stream=True) as r:
-                        if not r.ok:
-                            print(f'HungerBridge error {r.status_code}: {r.text}', file=getattr(__import__('sys'), 'stderr'))
-                            return
-                        for raw in r.iter_lines(decode_unicode=True):
-                            if self._stop_event.is_set():
-                                break
-                            if not raw or not raw.startswith('data:'):
-                                continue
-
-                            line = raw[len('data:'):].lstrip()
-                            if history_phase:
-                                history_lines.append(line)
-                                if time.time() >= history_deadline:
-                                    try:
-                                        self.history_handler(history_lines)
-                                    except Exception:
-                                        pass
-                                    history_phase = False
-                                continue
-
-                            try:
-                                self.new_log_handler(line)
-                            except Exception:
-                                pass
+                        try:
+                            self.new_log_handler(line)
+                        except Exception:
+                            pass
             except Exception as e:
                 try:
                     import sys
@@ -224,8 +194,6 @@ class BridgeClient:
         }
 
         # If token is provided, use HMAC-signed headers for SSE.
-        # The authoritative v3 route is /server/stream; the legacy /server/stream/logs
-        # form remains accepted for compatibility.
         if self._token_id and self._token_secret:
             header_provider = lambda: self._build_auth_headers('GET', '/server/stream', None)
         else:
@@ -300,20 +268,11 @@ class BridgeClient:
         return headers
 
     def _get_with_fallback(self, primary_path: str, legacy_path: str | None = None):
-        try:
-            return self._get(primary_path)
-        except HungerBridgeError:
-            if legacy_path and legacy_path != primary_path:
-                return self._get(legacy_path)
-            raise
+        # kept for backward-compat but now simply delegates to canonical v3 path
+        return self._get(primary_path)
 
     def _post_with_fallback(self, primary_path: str, payload, legacy_path: str | None = None):
-        try:
-            return self._post(primary_path, payload)
-        except HungerBridgeError:
-            if legacy_path and legacy_path != primary_path:
-                return self._post(legacy_path, payload)
-            raise
+        return self._post(primary_path, payload)
 
     # helper for debugging: return headers used for connecting to the stream
     def get_stream_headers(self) -> dict:
@@ -330,22 +289,21 @@ class BridgeClient:
 
     # raw endpoints
     def ping(self) -> dict:
-        return self._get_with_fallback('ping', 'server/ping')
+        return self._get('ping')
 
     def info(self) -> dict:
-        return self._get_with_fallback('server/info')
+        return self._get('server/info')
 
     def status(self) -> dict:
-        return self._get_with_fallback('server/status')
+        return self._get('server/status')
 
-    def tps(self) -> dict:
-        return self._get_with_fallback('tps', 'server/tps')
+    
 
     def players(self) -> dict:
-        return self._get_with_fallback('players', 'server/players')
+        return self._get('players/list')
 
     def server_meta(self) -> dict:
-        return self._get_with_fallback('server/meta')
+        return self._get('server/meta')
 
     def system_uptime(self) -> dict:
         return self._get('system/uptime')
@@ -359,8 +317,7 @@ class BridgeClient:
     def system_disk(self) -> dict:
         return self._get('system/disk')
 
-    def players_list(self) -> dict:
-        return self._get('players/list')
+    # canonical: use `players()` for players list
 
     def player_kick(self, player: str, reason: str | None = None) -> dict:
         payload = {'player': player}
@@ -384,7 +341,7 @@ class BridgeClient:
 
     def world_chunks(self) -> dict:
         return self._get('world/chunks')
-
+    
     def world_time(self) -> dict:
         return self._get('world/time')
 
@@ -489,21 +446,23 @@ class BridgeClient:
 
     def getVersion(self) -> str | None:
         '''Returns HungerBridge version'''
-        info = self.info()
-        bridge = self._extract(info, 'bridge')
+        bridge = self.getBridge()
         return bridge.get('version') if isinstance(bridge, dict) else None
 
     def getPlatform(self) -> str | None:
         '''Returns server platform'''
-        info = self.info()
-        bridge = self._extract(info, 'bridge')
+        bridge = self.getBridge()
         return bridge.get('platform') if isinstance(bridge, dict) else None
 
     def getMinecraftVersion(self) -> str | None:
         '''Returns Minecraft version'''
-        info = self.info()
-        bridge = self._extract(info, 'bridge')
+        bridge = self.getBridge()
         return bridge.get('minecraft') if isinstance(bridge, dict) else None
+
+    def getBridge(self) -> dict:
+        '''Returns the `bridge` section from GET /server/info as a dict.'''
+        info = self.info()
+        return self._extract(info, 'bridge')
 
     def getStatus(self) -> bool:
         '''Validates connection status'''
@@ -517,7 +476,7 @@ class BridgeClient:
         - 5m:        EMA6000
         - tick_time: avg tick time (ms)
         '''
-        data = self.tps()
+        data = self.world_tps()
         if mode == 'current':
             return self._extract(data, 'tps')
         if mode == '1m':
@@ -542,6 +501,22 @@ class BridgeClient:
         if mode == 'list':
             return self._extract(data, 'players')
         raise InvalidModeError(f'Invalid mode: \'{mode}\'')
+
+    def getWorldTime(self) -> int | None:
+        data = self.world_time()
+        return self._extract(data, 'time')
+
+    def getWorldWeather(self) -> str | None:
+        data = self.world_weather()
+        return self._extract(data, 'weather')
+
+    def getWorldChunks(self) -> int | None:
+        data = self.world_chunks()
+        return self._extract(data, 'chunks')
+
+    def getMSPT(self) -> float | None:
+        data = self.world_mspt()
+        return self._extract(data, 'mspt')
 
     # --- admin endpoints ---
     def list_tokens(self) -> dict:
@@ -590,10 +565,7 @@ class BridgeClient:
         '''Get configured IP whitelist/blacklist.'''
         return self._get('admin/ip')
 
-    def get_audit(self, n: int = 20) -> list:
-        '''Get last N audit log lines.'''
-        # audit endpoint expects ?n=<int>
-        return self._get(f'admin/audit?n={int(n)}')
+    
 
     def auth_check(self) -> dict:
         '''Check permissions for the token used to make the request (GET /auth/check).'''

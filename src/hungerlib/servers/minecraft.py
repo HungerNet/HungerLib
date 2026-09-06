@@ -32,7 +32,7 @@ class MinecraftServer(GenericServer):
         self.server_domain = server_domain
         self.server_port = server_port
 
-        # HungerBridge client
+        # HungerBridge clienw
         self.bridge = BridgeClient(
             bridge_url,
             token_id=bridge_token,

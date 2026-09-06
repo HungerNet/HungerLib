@@ -20,7 +20,7 @@ pip install hungerlib
 
 ## HungerBridge client
 
-The `BridgeClient` talks to the HungerBridge API at the root URL, using endpoints such as `/server/ping`, `/server/info`, `/server/status`, `/server/tps`, `/server/players`, `/server/run`, `/server/log`, `/server/stream/logs`, and the admin routes under `/admin/...`.
+ The `BridgeClient` talks to the HungerBridge API at the root URL, using endpoints such as `/ping`, `/server/info`, `/server/status`, `/world/tps`, `/players/list`, `/server/run`, `/server/log`, `/server/stream`, and the admin routes under `/admin/...`.
 
 ```python
 from hungerlib.bridgeclient import BridgeClient
