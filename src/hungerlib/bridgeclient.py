@@ -455,30 +455,6 @@ class BridgeClient:
     def restart_server(self) -> dict:
         return self._post('server/restart', {})
 
-    def admin_status(self) -> dict:
-        '''Get admin/status info (rate limits, ACLs).'''
-        return self._get('admin/status')
-
-    def reload_config(self) -> dict:
-        '''Trigger config reload on server.'''
-        return self._post('admin/reload', {})
-
-    def admin_audit(self, n: int = 20) -> list:
-        '''Get last N audit log lines.'''
-        return self._get(f'admin/audit?n={int(n)}')
-
-    def purge_audit(self) -> dict:
-        return self._post('admin/audit/purge', {})
-
-    def config_get(self, section: str) -> dict:
-        if section not in {'main', 'security', 'tokens'}:
-            raise ValueError("section must be one of: main, security, tokens")
-        return self._get(f'admin/config/get/{section}')
-
-    def config_update(self, section: str, payload: dict) -> dict:
-        if section not in {'main', 'security', 'tokens'}:
-            raise ValueError("section must be one of: main, security, tokens")
-        return self._post(f'admin/config/update/{section}', payload)
 
     # convenience getters
     def getPing(self) -> int:
@@ -561,51 +537,6 @@ class BridgeClient:
     def getMSPT(self) -> Optional[float]:
         data = self.world_mspt()
         return self._extract(data, 'mspt')
-
-    # --- admin endpoints ---
-    def list_tokens(self) -> dict:
-        '''List tokens (admin). Returns mapping of token metadata.'''
-        return self._get('admin/token/list')
-
-    def token_meta(self) -> dict:
-        return self._get('admin/token/meta')
-
-    def create_token(
-        self,
-        policy_id: str,
-        token_id: str,
-        expiry: Optional[int] = None,
-        permissions: Optional[list] = None,
-    ) -> dict:
-        '''Create a token using `policy_id` and explicit `token_id` (expiry and permissions optional).'''
-        if policy_id is None or not str(policy_id).strip():
-            raise HungerBridgeError('policy_id is required')
-        if token_id is None or not str(token_id).strip():
-            raise HungerBridgeError('token_id is required')
-
-        payload = {'policyId': str(policy_id), 'tokenId': str(token_id)}
-        if expiry is not None:
-            payload['expiry'] = int(expiry)
-        if permissions is not None:
-            payload['permissions'] = list(permissions)
-        return self._post('admin/token/create', payload)
-
-    def revoke_token(self, token_id: str) -> dict:
-        '''Revoke a token by id.'''
-        return self._post('admin/token/revoke', {'id': token_id})
-
-    def remove_token(self, token_id: str) -> dict:
-        '''Remove a token from storage permanently.'''
-        return self._post('admin/token/remove', {'id': token_id})
-
-    def rotate_token(self, token_id: str) -> dict:
-        '''Rotate a token secret; returns new id/secret pair.'''
-        return self._post('admin/token/rotate', {'id': token_id})
-
-    def ip_status(self) -> dict:
-        '''Get configured IP whitelist/blacklist.'''
-        return self._get('admin/ip')
-
     
 
     def auth_check(self) -> dict:
