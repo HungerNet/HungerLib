@@ -6,7 +6,44 @@ import hmac
 import hashlib
 import json
 import uuid
+from urllib.parse import urlparse
+from typing import Optional, Union
 from .utils.exceptions import HungerBridgeError, InvalidLevelError, InvalidModeError
+
+
+def _canonicalize_json_body(value):
+    if value is None:
+        return ''
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return json.dumps(value, separators=(',', ':'), sort_keys=True)
+    try:
+        return json.dumps(value, separators=(',', ':'), sort_keys=True)
+    except Exception:
+        return str(value)
+
+
+def _normalize_path(path: Optional[str]) -> str:
+    if not path:
+        return '/'
+    normalized = str(path).strip()
+    if not normalized:
+        return '/'
+    if '://' in normalized:
+        try:
+            parsed = urlparse(normalized)
+            normalized = parsed.path or '/'
+        except Exception:
+            normalized = normalized.split('://', 1)[1]
+            if '/' in normalized:
+                normalized = normalized.split('/', 1)[1]
+    normalized = normalized.split('?', 1)[0].split('#', 1)[0]
+    if not normalized.startswith('/'):
+        normalized = '/' + normalized
+    if normalized == '':
+        normalized = '/'
+    while len(normalized) > 1 and normalized.endswith('/'):
+        normalized = normalized[:-1]
+    return normalized or '/'
 
 
 class Stream:
@@ -51,12 +88,12 @@ class Stream:
         if ts is not None:
             self.timestamped_stream[ts] = clean
 
-    def connect(self, keepalive: int = 15, history: int | None = None):
+    def connect(self, keepalive: int = 15, history: Optional[int] = None):
         '''
         Connect to the SSE stream. Optionally request recent history lines by
         passing `history=<n>` which will add the query parameter `?history=n`.
         '''
-        def _build_url_with_history(url: str, history: int | None):
+        def _build_url_with_history(url: str, history: Optional[int]):
             if not history:
                 return url
             sep = '&' if '?' in url else '?'
@@ -68,7 +105,7 @@ class Stream:
         self._stop_event = threading.Event()
         self._session = requests.Session()
 
-        def _run(history: int | None = None):
+        def _run(history: Optional[int] = None):
             history_phase = True
             history_lines = []
             history_deadline = time.time() + (1.0 if history else keepalive)
@@ -164,8 +201,8 @@ class BridgeClient:
     def __init__(
         self,
         url: str,
-        token_id: str | None = None,
-        token_secret: str | None = None,
+        token_id: Optional[str] = None,
+        token_secret: Optional[str] = None,
         history_handler=None,
         new_log_handler=None
     ):
@@ -208,17 +245,12 @@ class BridgeClient:
 
     # internal helpers
     def _post(self, path: str, payload):
-        full_path = '/' + path
-        # Serialize body in the canonical form used for signing, and send
-        # the exact bytes so the server verifies the same message we signed.
+        full_path = '/' + path.lstrip('/')
         body_str = ''
         if payload is not None:
-            try:
-                body_str = json.dumps(payload, separators=(',', ':'), sort_keys=True)
-            except Exception:
-                body_str = str(payload)
+            body_str = _canonicalize_json_body(payload)
         headers = self._build_auth_headers('POST', full_path, payload)
-        r = requests.post(self.base + '/' + path, headers=headers, data=body_str)
+        r = requests.post(self.base + '/' + path.lstrip('/'), headers=headers, data=body_str)
         if not r.ok:
             raise HungerBridgeError(f'HungerBridge error {r.status_code}: {r.text}')
         try:
@@ -227,9 +259,9 @@ class BridgeClient:
             return r.text
 
     def _get(self, path: str):
-        full_path = '/' + path
+        full_path = '/' + path.lstrip('/')
         headers = self._build_auth_headers('GET', full_path, None)
-        r = requests.get(self.base + '/' + path, headers=headers)
+        r = requests.get(self.base + '/' + path.lstrip('/'), headers=headers)
         if not r.ok:
             raise HungerBridgeError(f'HungerBridge error {r.status_code}: {r.text}')
         try:
@@ -242,17 +274,11 @@ class BridgeClient:
         if self._token_secret and self._token_id:
             timestamp = str(int(time.time()))
             nonce = uuid.uuid4().hex
-
+            normalized_path = _normalize_path(path)
             body_str = ''
             if body is not None:
-                try:
-                    body_str = json.dumps(body, separators=(',', ':'), sort_keys=True)
-                except Exception:
-                    body_str = str(body)
-
-            msg = f"{method.upper()}\n{path}\n{timestamp}\n{nonce}\n{body_str}"
-            # token_secret is a hex string of the raw key bytes (server exposes hex);
-            # decode if possible to use raw bytes as HMAC key. Fall back to raw utf-8.
+                body_str = _canonicalize_json_body(body)
+            msg = f"{method.upper()}\n{normalized_path}\n{timestamp}\n{nonce}\n{body_str}"
             try:
                 key_bytes = bytes.fromhex(self._token_secret)
             except Exception:
@@ -266,13 +292,6 @@ class BridgeClient:
                 'X-Auth-Signature': sig,
             })
         return headers
-
-    def _get_with_fallback(self, primary_path: str, legacy_path: str | None = None):
-        # kept for backward-compat but now simply delegates to canonical v3 path
-        return self._get(primary_path)
-
-    def _post_with_fallback(self, primary_path: str, payload, legacy_path: str | None = None):
-        return self._post(primary_path, payload)
 
     # helper for debugging: return headers used for connecting to the stream
     def get_stream_headers(self) -> dict:
@@ -319,13 +338,13 @@ class BridgeClient:
 
     # canonical: use `players()` for players list
 
-    def player_kick(self, player: str, reason: str | None = None) -> dict:
+    def player_kick(self, player: str, reason: Optional[str] = None) -> dict:
         payload = {'player': player}
         if reason is not None:
             payload['reason'] = reason
         return self._post('players/kick', payload)
 
-    def player_ban(self, player: str, reason: str | None = None, duration: int | None = None) -> dict:
+    def player_ban(self, player: str, reason: Optional[str] = None, duration: Optional[int] = None) -> dict:
         payload = {'player': player}
         if reason is not None:
             payload['reason'] = reason
@@ -444,17 +463,17 @@ class BridgeClient:
         end = time.time()
         return int((end - start) * 1000)
 
-    def getVersion(self) -> str | None:
+    def getVersion(self) -> Optional[str]:
         '''Returns HungerBridge version'''
         bridge = self.getBridge()
         return bridge.get('version') if isinstance(bridge, dict) else None
 
-    def getPlatform(self) -> str | None:
+    def getPlatform(self) -> Optional[str]:
         '''Returns server platform'''
         bridge = self.getBridge()
         return bridge.get('platform') if isinstance(bridge, dict) else None
 
-    def getMinecraftVersion(self) -> str | None:
+    def getMinecraftVersion(self) -> Optional[str]:
         '''Returns Minecraft version'''
         bridge = self.getBridge()
         return bridge.get('minecraft') if isinstance(bridge, dict) else None
@@ -488,7 +507,7 @@ class BridgeClient:
 
         raise InvalidModeError(f'Invalid mode: \'{mode}\'')
 
-    def getPlayers(self, mode: str = 'count') -> int | list:
+    def getPlayers(self, mode: str = 'count') -> Union[int, list]:
         '''
         Returns:
         - count: number of players
@@ -502,19 +521,19 @@ class BridgeClient:
             return self._extract(data, 'players')
         raise InvalidModeError(f'Invalid mode: \'{mode}\'')
 
-    def getWorldTime(self) -> int | None:
+    def getWorldTime(self) -> Optional[int]:
         data = self.world_time()
         return self._extract(data, 'time')
 
-    def getWorldWeather(self) -> str | None:
+    def getWorldWeather(self) -> Optional[str]:
         data = self.world_weather()
         return self._extract(data, 'weather')
 
-    def getWorldChunks(self) -> int | None:
+    def getWorldChunks(self) -> Optional[int]:
         data = self.world_chunks()
         return self._extract(data, 'chunks')
 
-    def getMSPT(self) -> float | None:
+    def getMSPT(self) -> Optional[float]:
         data = self.world_mspt()
         return self._extract(data, 'mspt')
 
@@ -530,11 +549,10 @@ class BridgeClient:
         self,
         policy_id: str,
         token_id: str,
-        expiry: int | None = None,
-        whitelist: list | None = None,
-        blacklist: list | None = None,
+        expiry: Optional[int] = None,
+        permissions: Optional[list] = None,
     ) -> dict:
-        '''Create a token using `policy_id` and explicit `token_id` (expiry optional).'''
+        '''Create a token using `policy_id` and explicit `token_id` (expiry and permissions optional).'''
         if policy_id is None or not str(policy_id).strip():
             raise HungerBridgeError('policy_id is required')
         if token_id is None or not str(token_id).strip():
@@ -543,10 +561,8 @@ class BridgeClient:
         payload = {'policyId': str(policy_id), 'tokenId': str(token_id)}
         if expiry is not None:
             payload['expiry'] = int(expiry)
-        if whitelist is not None:
-            payload['whitelist'] = whitelist
-        if blacklist is not None:
-            payload['blacklist'] = blacklist
+        if permissions is not None:
+            payload['permissions'] = list(permissions)
         return self._post('admin/token/create', payload)
 
     def revoke_token(self, token_id: str) -> dict:
