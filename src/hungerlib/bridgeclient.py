@@ -286,7 +286,7 @@ class BridgeClient:
             sig = hmac.new(key_bytes, msg.encode('utf-8'), hashlib.sha256).hexdigest()
 
             headers.update({
-                'X-Auth-Token-Id': self._token_id,
+                'X-Auth-Id': self._token_id,
                 'X-Auth-Timestamp': timestamp,
                 'X-Auth-Nonce': nonce,
                 'X-Auth-Signature': sig,
@@ -326,6 +326,58 @@ class BridgeClient:
         sig = hmac.new(key_bytes, canonical.encode('utf-8'), hashlib.sha256).hexdigest()
         return {'canonical': canonical, 'signature': sig, 'timestamp': timestamp, 'nonce': nonce}
 
+    def runCommand(self, command: str, silent: bool = False, showConsole: bool = False) -> dict:
+        payload = {'command': command}
+        if silent: payload['silent'] = True
+        if showConsole: payload['show_console'] = True
+        return self._post('server/run', payload)
+
+    def log(self, level: str, message: str) -> dict:
+        payload = {'level': level, 'message': message}
+        return self._post('server/log', payload)
+
+    def getPlayers(self) -> dict:
+        return self._get('players/list')
+
+    def getTps(self) -> dict:
+        return self._get('world/tps')
+
+    def getMspt(self) -> dict:
+        return self._get('world/mspt')
+
+    def getChunks(self) -> dict:
+        return self._get('world/chunks')
+
+    def getWorldTime(self) -> dict:
+        return self._get('world/time')
+
+    def getWeather(self) -> dict:
+        return self._get('world/weather')
+
+    def getSystemUptime(self) -> dict:
+        return self._get('system/uptime')
+
+    def getCpuStats(self) -> dict:
+        return self._get('system/cpu')
+
+    def getMemoryStats(self) -> dict:
+        return self._get('system/memory')
+
+    def getDiskStats(self) -> dict:
+        return self._get('system/disk')
+
+    def getBridgeMeta(self) -> dict:
+        return self._get('server/meta')
+
+    def streamLogs(self) -> Stream:
+        return self.stream
+
+    def checkAuth(self) -> dict:
+        return self._get('auth/check')
+
+    def signForDebug(self, method: str, path: str, body) -> dict:
+        return self.sign_for_debug(method, path, body)
+
     def _extract(self, data, field):
         if not isinstance(data, dict):
             raise HungerBridgeError('_extract() expects a dict response')
@@ -336,10 +388,10 @@ class BridgeClient:
         return self._get('ping')
 
     def info(self) -> dict:
-        return self._get('server/info')
+        return self._get('server/meta')
 
     def status(self) -> dict:
-        return self._get('server/status')
+        return self._get('server/meta')
 
     
 
@@ -364,18 +416,10 @@ class BridgeClient:
     # canonical: use `players()` for players list
 
     def player_kick(self, player: str, reason: Optional[str] = None) -> dict:
-        payload = {'player': player}
-        if reason is not None:
-            payload['reason'] = reason
-        return self._post('players/kick', payload)
+        raise HungerBridgeError('players/kick endpoint removed in v3')
 
     def player_ban(self, player: str, reason: Optional[str] = None, duration: Optional[int] = None) -> dict:
-        payload = {'player': player}
-        if reason is not None:
-            payload['reason'] = reason
-        if duration is not None:
-            payload['duration'] = int(duration)
-        return self._post('players/ban', payload)
+        raise HungerBridgeError('players/ban endpoint removed in v3')
 
     def world_tps(self) -> dict:
         return self._get('world/tps')
@@ -393,13 +437,13 @@ class BridgeClient:
         return self._get('world/weather')
 
     def world_event_join(self) -> dict:
-        return self._get('world/events/join')
+        raise HungerBridgeError('world/events endpoints removed in v3')
 
     def world_event_leave(self) -> dict:
-        return self._get('world/events/leave')
+        raise HungerBridgeError('world/events endpoints removed in v3')
 
     def world_event_chat(self) -> dict:
-        return self._get('world/events/chat')
+        raise HungerBridgeError('world/events endpoints removed in v3')
 
     # public api
     def runCommand(
