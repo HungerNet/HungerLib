@@ -301,6 +301,31 @@ class BridgeClient:
         '''
         return self._build_auth_headers('GET', '/server/stream', None)
 
+    # Debug helpers -------------------------------------------------
+    def build_headers(self, method: str, path: str, body) -> dict:
+        """Return the exact headers the client would send for the given request.
+
+        Useful to compare against server-side verification when debugging auth.
+        """
+        return self._build_auth_headers(method, path, body)
+
+    def sign_for_debug(self, method: str, path: str, body) -> dict:
+        """Return a dict with the canonical string and signature bytes/hex for inspection.
+
+        Returns: { 'canonical': str, 'signature': str }
+        """
+        timestamp = str(int(time.time()))
+        nonce = uuid.uuid4().hex
+        normalized_path = _normalize_path(path)
+        body_str = '' if body is None else _canonicalize_json_body(body)
+        canonical = f"{method.upper()}\n{normalized_path}\n{timestamp}\n{nonce}\n{body_str}"
+        try:
+            key_bytes = bytes.fromhex(self._token_secret)
+        except Exception:
+            key_bytes = self._token_secret.encode('utf-8')
+        sig = hmac.new(key_bytes, canonical.encode('utf-8'), hashlib.sha256).hexdigest()
+        return {'canonical': canonical, 'signature': sig, 'timestamp': timestamp, 'nonce': nonce}
+
     def _extract(self, data, field):
         if not isinstance(data, dict):
             raise HungerBridgeError('_extract() expects a dict response')
