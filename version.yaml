@@ -1,5 +1,5 @@
 run: true
-version: '4.25-dev.33'
+version: '4.25-dev.34'
 description: |
   Dev 1:
   - Update BridgeClient, add log streaming support (HungerBridge update)
@@ -43,5 +43,6 @@ description: |
   - Removed shutdown() method from HungerBridge
   Dev 32:
   - Updated BridgeClient to support new endpoints
-  Dev 33:
+  Dev 34:
   - Update BridgeClient's structure
+  - Fixed logic errors

@@ -244,7 +244,7 @@ class BridgeClient:
     # Public API
     # ----------------------------------------------
     def isOk(self):
-        return True if self._extract(self._get('ping'), 'ok').lower() == 'true' else False
+        return True if str(self._extract(self._get('ping'), 'ok')).lower() == 'true' else False
     
     def getServerTime(self):
         return self._extract(self._get('ping'), 'server_time')
