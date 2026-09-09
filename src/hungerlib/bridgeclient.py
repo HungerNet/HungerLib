@@ -337,29 +337,73 @@ class BridgeClient:
         total_bytes = self._extract(resp, 'total_bytes')
         free_bytes = self._extract(resp, 'free_bytes')
         max_bytes = self._extract(resp, 'max_bytes')
+        nonheap_used = self._extract(resp, 'nonheap_used')
+        nonheap_committed = self._extract(resp, 'nonheap_committed')
+        nonheap_max = self._extract(resp, 'nonheap_max')
 
-        if unit == 'mib':
-            return {
-                'used': convert.byte(used_bytes, 'b', 'mib'),
-                'total': convert.byte(total_bytes, 'b', 'mib'),
-                'free': convert.byte(free_bytes, 'b', 'mib'),
-                'max': convert.byte(max_bytes, 'b', 'mib'),
-            }
-        if unit == 'gib':
-            return {
-                'used': convert.byte(used_bytes, 'b', 'gib'),
-                'total': convert.byte(total_bytes, 'b', 'gib'),
-                'free': convert.byte(free_bytes, 'b', 'gib'),
-                'max': convert.byte(max_bytes, 'b', 'gib'),
-            }
-        else:
-            return {
-                'used': used_bytes,
-                'total': total_bytes,
-                'free': free_bytes,
-                'max': max_bytes,
-            }
-            
+        def _convert(value):
+            if value is None:
+                return None
+            if unit == 'mib':
+                return convert.byte(value, 'b', 'mib')
+            if unit == 'gib':
+                return convert.byte(value, 'b', 'gib')
+            return value
+
+        return {
+            'used': _convert(used_bytes),
+            'total': _convert(total_bytes),
+            'free': _convert(free_bytes),
+            'max': _convert(max_bytes),
+            'nonheap_used': _convert(nonheap_used),
+            'nonheap_committed': _convert(nonheap_committed),
+            'nonheap_max': _convert(nonheap_max),
+        }
+
+    def getSystemGc(self):
+        resp = self._get('system/gc')
+        return {
+            'gc_type': self._extract(resp, 'gc_type'),
+            'gc_count': self._extract(resp, 'gc_count'),
+            'gc_time_ms': self._extract(resp, 'gc_time_ms'),
+            'last_gc_pause_ms': self._extract(resp, 'last_gc_pause_ms'),
+            'avg_gc_pause_ms': self._extract(resp, 'avg_gc_pause_ms'),
+        }
+
+    def getSystemThreads(self):
+        resp = self._get('system/threads')
+        return {
+            'current': self._extract(resp, 'current'),
+            'peak': self._extract(resp, 'peak'),
+            'daemon': self._extract(resp, 'daemon'),
+        }
+
+    def getSystemNetwork(self):
+        resp = self._get('system/network')
+        return {
+            'bytes_in_per_sec': self._extract(resp, 'bytes_in_per_sec'),
+            'bytes_out_per_sec': self._extract(resp, 'bytes_out_per_sec'),
+            'total_bytes_in': self._extract(resp, 'total_bytes_in'),
+            'total_bytes_out': self._extract(resp, 'total_bytes_out'),
+        }
+
+    def getWorldChunks(self):
+        resp = self._get('world/chunks')
+        return {
+            'total': self._extract(resp, 'total'),
+            'world': self._extract(resp, 'world'),
+            'world_nether': self._extract(resp, 'world_nether'),
+            'world_the_end': self._extract(resp, 'world_the_end'),
+        }
+
+    def getWorldEntities(self):
+        resp = self._get('world/entities')
+        return {
+            'total': self._extract(resp, 'total'),
+            'world': self._extract(resp, 'world'),
+            'world_nether': self._extract(resp, 'world_nether'),
+            'world_the_end': self._extract(resp, 'world_the_end'),
+        }
 
     def getDiskStats(self, unit='mib'):
         resp = self._get('system/disk')
