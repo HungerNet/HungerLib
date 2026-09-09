@@ -236,7 +236,7 @@ class BridgeClient:
     # Public API
     # ----------------------------------------------
     def isOk(self):
-        return True if self._extract(self._get('ping'), 'ok') == 'true' else False
+        return True if self._extract(self._get('ping'), 'ok').lower() == 'true' else False
     
     def getServerTime(self):
         return self._extract(self._get('ping'), 'server_time')
@@ -265,10 +265,10 @@ class BridgeClient:
             'port': resp.get('port')
         }
     
-    def getPlatform(self): return self.serverMeta()['platform']
-    def getMinecraftVersion(self): return self.serverMeta()['minecraft_version']
-    def getBridgeVersion(self): return self.serverMeta()['bridge_version']
-    def getBridgePort(self): return self.serverMeta()['port']
+    def getPlatform(self): return self.getServerMeta()['platform']
+    def getMinecraftVersion(self): return self.getServerMeta()['minecraft_version']
+    def getBridgeVersion(self): return self.getServerMeta()['bridge_version']
+    def getBridgePort(self): return self.getServerMeta()['port']
 
     def getPlayers(self, mode: str='count'):
         resp = self._get('players/list')
@@ -367,24 +367,28 @@ class BridgeClient:
         used_bytes = self._extract(resp, 'used_bytes')
         total_bytes = self._extract(resp, 'total_bytes')
         free_bytes = self._extract(resp, 'free_bytes')
+        usable_bytes = self._extract(resp, 'usable_bytes')
 
         if unit == 'mib':
             return {
                 'used': convert.byte(used_bytes, 'b', 'mib'),
                 'total': convert.byte(total_bytes, 'b', 'mib'),
                 'free': convert.byte(free_bytes, 'b', 'mib'),
+                'usable': convert.byte(usable_bytes, 'b', 'mib'),
             }
         if unit == 'gib':
             return {
                 'used': convert.byte(used_bytes, 'b', 'gib'),
                 'total': convert.byte(total_bytes, 'b', 'gib'),
                 'free': convert.byte(free_bytes, 'b', 'gib'),
+                'usable': convert.byte(usable_bytes, 'b', 'gib'),
             }
         else:
             return {
                 'used': used_bytes,
                 'total': total_bytes,
                 'free': free_bytes,
+                'usable': usable_bytes,
             }
 
     def log(self, message: str, level: str = 'info', thread: str | None = None):
@@ -424,7 +428,3 @@ class BridgeClient:
     def stopServer(self):
         '''POST /server/stop — returns full server response dict.'''
         return self._post('server/stop', {})
-
-    def restartServer(self):
-        '''POST /server/restart — returns full server response dict.'''
-        return self._post('server/restart', {})
