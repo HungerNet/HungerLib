@@ -231,7 +231,7 @@ class BridgeClient:
             cur = cur.get(p)
         return cur
 
-    def _convert(self, value):
+    def _convert(self, value, unit):
         if value is None:
             return None
         if unit == 'mib':
