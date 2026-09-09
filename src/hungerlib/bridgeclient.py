@@ -332,9 +332,9 @@ class BridgeClient:
         if showConsole: payload['show_console'] = True
         return self._post('server/run', payload)
 
-    def log(self, level: str, message: str) -> dict:
-        payload = {'level': level, 'message': message}
-        return self._post('server/log', payload)
+    # def log(self, level: str, message: str) -> dict:
+    #     payload = {'level': level, 'message': message}
+    #     return self._post('server/log', payload)
 
     def getPlayers(self) -> dict:
         return self._get('players/list')
