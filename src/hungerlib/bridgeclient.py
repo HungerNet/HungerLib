@@ -7,22 +7,19 @@ import hashlib
 import json
 import uuid
 from urllib.parse import urlparse
-from typing import Optional, Union
 from .utils.exceptions import HungerBridgeError, InvalidLevelError, InvalidModeError
 
 
 def _canonicalize_json_body(value):
     if value is None:
         return ''
-    if isinstance(value, (str, int, float, bool)) or value is None:
-        return json.dumps(value, separators=(',', ':'), sort_keys=True)
     try:
         return json.dumps(value, separators=(',', ':'), sort_keys=True)
     except Exception:
         return str(value)
 
 
-def _normalize_path(path: Optional[str]) -> str:
+def _normalize_path(path: str | None) -> str:
     if not path:
         return '/'
     normalized = str(path).strip()
@@ -39,29 +36,19 @@ def _normalize_path(path: Optional[str]) -> str:
     normalized = normalized.split('?', 1)[0].split('#', 1)[0]
     if not normalized.startswith('/'):
         normalized = '/' + normalized
-    if normalized == '':
-        normalized = '/'
     while len(normalized) > 1 and normalized.endswith('/'):
         normalized = normalized[:-1]
     return normalized or '/'
 
 
 class Stream:
-    '''Streaming wrapper for the HungerBridge SSE log endpoint.'''
-    def __init__(
-        self,
-        base_url: str,
-        # headers may be a dict or a callable returning a dict for dynamic
-        # per-connection headers (useful for HMAC-signed SSE connections).
-        headers,
-        history_handler=None,
-        new_log_handler=None
-    ):
-        self.url = base_url.rstrip('/') + '/server/stream'
-        self.headers = headers
+    """SSE streaming wrapper for /server/stream."""
 
-        self.history_handler = history_handler or self._default_history_handler
-        self.new_log_handler = new_log_handler or self._default_new_log_handler
+    def __init__(self, base_url: str, headers_provider, history_handler=None, new_log_handler=None):
+        self.url = base_url.rstrip('/') + '/server/stream'
+        self.headers_provider = headers_provider
+        self.history_handler = history_handler
+        self.new_log_handler = new_log_handler
 
         self.raw_stream = []
         self.sanitized_stream = []
@@ -71,7 +58,7 @@ class Stream:
         self._stop_event = None
         self._session = None
 
-    def _default_history_handler(self, historic_lines: list):
+    def _default_history_handler(self, historic_lines):
         for line in historic_lines:
             clean = self.sanitize(line)
             ts = self.extractTimestamp(clean)
@@ -80,7 +67,7 @@ class Stream:
             if ts is not None:
                 self.timestamped_stream[ts] = clean
 
-    def _default_new_log_handler(self, line: str):
+    def _default_new_log_handler(self, line):
         clean = self.sanitize(line)
         ts = self.extractTimestamp(clean)
         self.raw_stream.append(line)
@@ -88,31 +75,27 @@ class Stream:
         if ts is not None:
             self.timestamped_stream[ts] = clean
 
-    def connect(self, keepalive: int = 15, history: Optional[int] = None):
-        '''
-        Connect to the SSE stream. Optionally request recent history lines by
-        passing `history=<n>` which will add the query parameter `?history=n`.
-        '''
-        def _build_url_with_history(url: str, history: Optional[int]):
-            if not history:
-                return url
-            sep = '&' if '?' in url else '?'
-            return f"{url}{sep}history={history}"
-
+    def connect(self, keepalive: int = 15, history: int | None = None):
         if self._thread and self._thread.is_alive():
             return
 
         self._stop_event = threading.Event()
         self._session = requests.Session()
 
-        def _run(history: Optional[int] = None):
+        def _build_url_with_history(url: str, history: int | None):
+            if not history:
+                return url
+            sep = '&' if '?' in url else '?'
+            return f"{url}{sep}history={history}"
+
+        def _run(history: int | None = None):
             history_phase = True
             history_lines = []
             history_deadline = time.time() + (1.0 if history else keepalive)
 
             request_url = _build_url_with_history(self.url, history)
             try:
-                req_headers = self.headers() if callable(self.headers) else self.headers
+                req_headers = self.headers_provider() if callable(self.headers_provider) else self.headers_provider
                 with self._session.get(request_url, headers=req_headers, stream=True) as r:
                     if not r.ok:
                         raise requests.HTTPError(f'{r.status_code}: {r.text}')
@@ -127,23 +110,18 @@ class Stream:
                             history_lines.append(line)
                             if time.time() >= history_deadline:
                                 try:
-                                    self.history_handler(history_lines)
+                                    (self.history_handler or self._default_history_handler)(history_lines)
                                 except Exception:
                                     pass
                                 history_phase = False
                             continue
 
                         try:
-                            self.new_log_handler(line)
+                            (self.new_log_handler or self._default_new_log_handler)(line)
                         except Exception:
                             pass
-            except Exception as e:
-                try:
-                    import sys
-                    print(f'Log stream failed: {e}', file=sys.stderr)
-                except Exception:
-                    pass
-                return
+            except Exception:
+                pass
             finally:
                 if self._session:
                     try:
@@ -154,12 +132,7 @@ class Stream:
                 self._session = None
                 self._stop_event = None
 
-        self._thread = threading.Thread(
-            target=_run,
-            kwargs={"history": history},
-            name='HungerBridgeStream',
-            daemon=True
-        )
+        self._thread = threading.Thread(target=_run, kwargs={"history": history}, name='HungerBridgeStream', daemon=True)
         self._thread.start()
 
     def disconnect(self):
@@ -174,83 +147,56 @@ class Stream:
         self._session = None
         self._stop_event = None
 
-    def isConnected(self) -> bool: return self._thread is not None and self._thread.is_alive()
+    def isConnected(self) -> bool:
+        return self._thread is not None and self._thread.is_alive()
 
-    def getRaw(self) -> list: return list(self.raw_stream)
-    def getSanitized(self) -> list: return list(self.sanitized_stream)
-    def getTimestamped(self) -> dict: return dict(self.timestamped_stream)
+    def getRaw(self) -> list:
+        return list(self.raw_stream)
+
+    def getSanitized(self) -> list:
+        return list(self.sanitized_stream)
+
+    def getTimestamped(self) -> dict:
+        return dict(self.timestamped_stream)
 
     @staticmethod
     def sanitize(line: str) -> str:
         ansi_re = re.compile(r'\x1b\[[0-9;]*m')
-        # remove ANSI sequences, unescape server-escaped newlines, and strip
         clean = ansi_re.sub('', line)
         clean = clean.replace('\\n', '\n').replace('\\r', '\r')
         return clean.rstrip()
 
     @staticmethod
-    def extractTimestamp(line: str):
+    def extractTimestamp(line: str) -> str | None:
         m = re.match(r'\[([0-9]{2}:[0-9]{2}:[0-9]{2})\]', line)
-        if not m:
-            return None
-        return m.group(1)
+        return m.group(1) if m else None
 
 
 class BridgeClient:
-    '''Python client for the HungerBridge API with optional HMAC-signed tokens.'''
-    def __init__(
-        self,
-        url: str,
-        token_id: Optional[str] = None,
-        token_secret: Optional[str] = None,
-        history_handler=None,
-        new_log_handler=None
-    ):
+    """Polished HungerBridge v3 Python SDK.
+
+    - One polished getter per endpoint (CamelCase).
+    - Parameterized getters: pass `field` to extract a single value; field=None returns full dict.
+    - Action endpoints return full dicts unless specified (see runCommand normalize=False).
+    """
+
+    def __init__(self, url: str, token_id: str | None = None, token_secret: str | None = None, history_handler=None, new_log_handler=None):
         self.base = url.rstrip('/')
-
-        # Accept either:
-        #  - BridgeClient(url, token_id='root', token_secret='...')
-        #  - BridgeClient(url, 'root:secret')
-        #  - BridgeClient(url, bridge_token='root:secret') through the caller
-        if isinstance(token_id, str) and token_id.lstrip().startswith('{'):
-            raise HungerBridgeError(
-                'Invalid token format: token must be a raw "id:secret" string, not the JSON from tokens.json. '
-                'The server never stores the plaintext secret in tokens.json; only the salt is stored.'
-            )
-        if token_secret is None and isinstance(token_id, str) and ':' in token_id:
-            split = token_id.split(':', 1)
-            if len(split) == 2 and split[0] and split[1]:
-                token_id, token_secret = split
-
         self._token_id = token_id
         self._token_secret = token_secret
 
-        self._static_headers = {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        }
+        self._static_headers = {'Content-Type': 'application/json', 'Accept': 'application/json'}
 
-        # If token is provided, use HMAC-signed headers for SSE.
-        if self._token_id and self._token_secret:
-            header_provider = lambda: self._build_auth_headers('GET', '/server/stream', None)
-        else:
-            header_provider = dict(self._static_headers)
+        header_provider = (lambda: self._build_auth_headers('GET', '/server/stream', None)) if (self._token_id and self._token_secret) else dict(self._static_headers)
 
-        self.stream = Stream(
-            base_url=self.base,
-            headers=header_provider,
-            history_handler=history_handler,
-            new_log_handler=new_log_handler
-        )
+        self.stream = Stream(base_url=self.base, headers_provider=header_provider, history_handler=history_handler, new_log_handler=new_log_handler)
 
-    # internal helpers
+    # --- HTTP helpers -----------------------------------------------------------------
     def _post(self, path: str, payload):
         full_path = '/' + path.lstrip('/')
-        body_str = ''
-        if payload is not None:
-            body_str = _canonicalize_json_body(payload)
+        body_str = _canonicalize_json_body(payload)
         headers = self._build_auth_headers('POST', full_path, payload)
-        r = requests.post(self.base + '/' + path.lstrip('/'), headers=headers, data=body_str)
+        r = requests.post(self.base + full_path, headers=headers, data=body_str)
         if not r.ok:
             raise HungerBridgeError(f'HungerBridge error {r.status_code}: {r.text}')
         try:
@@ -261,7 +207,7 @@ class BridgeClient:
     def _get(self, path: str):
         full_path = '/' + path.lstrip('/')
         headers = self._build_auth_headers('GET', full_path, None)
-        r = requests.get(self.base + '/' + path.lstrip('/'), headers=headers)
+        r = requests.get(self.base + full_path, headers=headers)
         if not r.ok:
             raise HungerBridgeError(f'HungerBridge error {r.status_code}: {r.text}')
         try:
@@ -275,314 +221,192 @@ class BridgeClient:
             timestamp = str(int(time.time()))
             nonce = uuid.uuid4().hex
             normalized_path = _normalize_path(path)
-            body_str = ''
-            if body is not None:
-                body_str = _canonicalize_json_body(body)
+            body_str = '' if body is None else _canonicalize_json_body(body)
             msg = f"{method.upper()}\n{normalized_path}\n{timestamp}\n{nonce}\n{body_str}"
             try:
                 key_bytes = bytes.fromhex(self._token_secret)
             except Exception:
                 key_bytes = self._token_secret.encode('utf-8')
             sig = hmac.new(key_bytes, msg.encode('utf-8'), hashlib.sha256).hexdigest()
-
-            headers.update({
-                'X-Auth-Id': self._token_id,
-                'X-Auth-Timestamp': timestamp,
-                'X-Auth-Nonce': nonce,
-                'X-Auth-Signature': sig,
-            })
+            headers.update({'X-Auth-Id': self._token_id, 'X-Auth-Timestamp': timestamp, 'X-Auth-Nonce': nonce, 'X-Auth-Signature': sig})
         return headers
 
-    # helper for debugging: return headers used for connecting to the stream
-    def get_stream_headers(self) -> dict:
-        '''Return the headers the client will use for the SSE stream.
+    def _extract(self, response, path: str):
+        """Extract a dot-path from a dict response. Returns None if missing."""
+        if response is None:
+            return None
+        if path is None or path == '':
+            return response
+        parts = path.split('.')
+        cur = response
+        for p in parts:
+            if not isinstance(cur, dict):
+                return None
+            cur = cur.get(p)
+        return cur
 
-        Useful for debugging auth problems (clock skew, token parsing, etc.).
-        '''
-        return self._build_auth_headers('GET', '/server/stream', None)
-
-    # Debug helpers -------------------------------------------------
-    def build_headers(self, method: str, path: str, body) -> dict:
-        """Return the exact headers the client would send for the given request.
-
-        Useful to compare against server-side verification when debugging auth.
-        """
-        return self._build_auth_headers(method, path, body)
-
-    def sign_for_debug(self, method: str, path: str, body) -> dict:
-        """Return a dict with the canonical string and signature bytes/hex for inspection.
-
-        Returns: { 'canonical': str, 'signature': str }
-        """
-        timestamp = str(int(time.time()))
-        nonce = uuid.uuid4().hex
-        normalized_path = _normalize_path(path)
-        body_str = '' if body is None else _canonicalize_json_body(body)
-        canonical = f"{method.upper()}\n{normalized_path}\n{timestamp}\n{nonce}\n{body_str}"
-        try:
-            key_bytes = bytes.fromhex(self._token_secret)
-        except Exception:
-            key_bytes = self._token_secret.encode('utf-8')
-        sig = hmac.new(key_bytes, canonical.encode('utf-8'), hashlib.sha256).hexdigest()
-        return {'canonical': canonical, 'signature': sig, 'timestamp': timestamp, 'nonce': nonce}
-
-    def runCommand(self, command: str, silent: bool = False, showConsole: bool = False) -> dict:
-        payload = {'command': command}
-        if silent: payload['silent'] = True
-        if showConsole: payload['show_console'] = True
-        return self._post('server/run', payload)
-
-    # def log(self, level: str, message: str) -> dict:
-    #     payload = {'level': level, 'message': message}
-    #     return self._post('server/log', payload)
-
-    def getPlayers(self) -> dict:
-        return self._get('players/list')
-
-    def getTps(self) -> dict:
-        return self._get('world/tps')
-
-    def getMspt(self) -> dict:
-        return self._get('world/mspt')
-
-    def getChunks(self) -> dict:
-        return self._get('world/chunks')
-
-    def getWorldTime(self) -> dict:
-        return self._get('world/time')
-
-    def getWeather(self) -> dict:
-        return self._get('world/weather')
-
-    def getSystemUptime(self) -> dict:
-        return self._get('system/uptime')
-
-    def getCpuStats(self) -> dict:
-        return self._get('system/cpu')
-
-    def getMemoryStats(self) -> dict:
-        return self._get('system/memory')
-
-    def getDiskStats(self) -> dict:
-        return self._get('system/disk')
-
-    def getBridgeMeta(self) -> dict:
-        return self._get('server/meta')
-
-    def streamLogs(self) -> Stream:
-        return self.stream
-
-    def checkAuth(self) -> dict:
-        return self._get('auth/check')
-
-    def signForDebug(self, method: str, path: str, body) -> dict:
-        return self.sign_for_debug(method, path, body)
-
-    def _extract(self, data, field):
-        if not isinstance(data, dict):
-            raise HungerBridgeError('_extract() expects a dict response')
-        return data.get(field)
-
-    # raw endpoints
-    def ping(self) -> dict:
+    # --- Actions (return full dicts unless runCommand normalize=True) ------------------
+    def ping(self):
+        """Return full /ping response dict."""
         return self._get('ping')
 
-    def info(self) -> dict:
-        return self._get('server/meta')
+    def getPing(self) -> int:
+        """Round-trip latency (ms) measured client-side."""
+        start = time.time()
+        self._get('ping')
+        end = time.time()
+        return int((end - start) * 1000)
 
-    def status(self) -> dict:
-        return self._get('server/meta')
-
-    
-
-    def players(self) -> dict:
-        return self._get('players/list')
-
-    def server_meta(self) -> dict:
-        return self._get('server/meta')
-
-    def system_uptime(self) -> dict:
-        return self._get('system/uptime')
-
-    def system_cpu(self) -> dict:
-        return self._get('system/cpu')
-
-    def system_memory(self) -> dict:
-        return self._get('system/memory')
-
-    def system_disk(self) -> dict:
-        return self._get('system/disk')
-
-    # canonical: use `players()` for players list
-
-    def player_kick(self, player: str, reason: Optional[str] = None) -> dict:
-        raise HungerBridgeError('players/kick endpoint removed in v3')
-
-    def player_ban(self, player: str, reason: Optional[str] = None, duration: Optional[int] = None) -> dict:
-        raise HungerBridgeError('players/ban endpoint removed in v3')
-
-    def world_tps(self) -> dict:
-        return self._get('world/tps')
-
-    def world_mspt(self) -> dict:
-        return self._get('world/mspt')
-
-    def world_chunks(self) -> dict:
-        return self._get('world/chunks')
-    
-    def world_time(self) -> dict:
-        return self._get('world/time')
-
-    def world_weather(self) -> dict:
-        return self._get('world/weather')
-
-    def world_event_join(self) -> dict:
-        raise HungerBridgeError('world/events endpoints removed in v3')
-
-    def world_event_leave(self) -> dict:
-        raise HungerBridgeError('world/events endpoints removed in v3')
-
-    def world_event_chat(self) -> dict:
-        raise HungerBridgeError('world/events endpoints removed in v3')
-
-    # public api
-    def runCommand(
-        self,
-        command: str,
-        show_console: bool = False,
-        silent: bool = False,
-        normalize: bool = True
-    ):
-        '''
-        Execute a command on the server.
-        Returns normalized output unless normalize=False.
-        '''
-        data = self._post('server/run', {
-            'command': command,
-            'silent': silent,
-            'show_console': show_console
-        })
+    def runCommand(self, command: str, showConsole: bool = False, silent: bool = False, normalize: bool = True):
+        """POST /server/run. If normalize=False returns full dict; otherwise returns normalized string or None."""
+        resp = self._post('server/run', {'command': command, 'silent': silent, 'show_console': showConsole})
         if not normalize:
-            return data
-        if isinstance(data, dict):
-            out = data.get('output')
+            return resp
+        # normalize output to string when possible
+        if isinstance(resp, dict):
+            out = resp.get('output')
             if isinstance(out, list):
                 return '\n'.join(str(x) for x in out)
             if isinstance(out, (str, bytes)):
                 return out
             return None
-        if isinstance(data, list):
-            return '\n'.join(str(x) for x in data)
-        if isinstance(data, (str, bytes)):
-            return data
+        if isinstance(resp, list):
+            return '\n'.join(str(x) for x in resp)
+        if isinstance(resp, (str, bytes)):
+            return resp
         return None
 
-    def log(self, message: str, level: str = 'info') -> dict:
-        '''Logs a message to the server console'''
-        valid_levels = ['info', 'warn', 'error', None]
-        if level not in valid_levels:
-            raise InvalidLevelError(f'\'{level}\' is not a valid log level')
-        if level is not None:
-            return self._post('server/log', {
-                'level': level,
-                'message': message
-            })
-        no_level_message = ('\b' * 20) + message
-        return self._post('server/log', {
-            'level': 'info',
-            'message': no_level_message
-        })
-
-    def stop_server(self) -> dict:
+    def stopServer(self):
+        """POST /server/stop — returns full server response dict."""
         return self._post('server/stop', {})
 
-    def restart_server(self) -> dict:
+    def restartServer(self):
+        """POST /server/restart — returns full server response dict."""
         return self._post('server/restart', {})
 
+    def log(self, message: str, level: str = 'info'):
+        """POST /server/log — preserve original semantics and return full dict.
 
-    # convenience getters
-    def getPing(self) -> int:
-        '''Round-trip latency (ms) measured client-side.'''
-        start = time.time()
-        self.ping()
-        end = time.time()
-        return int((end - start) * 1000)
+        If level is None, apply the backspace trick to avoid explicit level.
+        """
+        valid_levels = ['info', 'warn', 'error', None]
+        if level not in valid_levels:
+            raise InvalidLevelError(f"'{level}' is not a valid log level")
+        if level is not None:
+            return self._post('server/log', {'level': level, 'message': message})
+        no_level_message = ('\b' * 20) + message
+        return self._post('server/log', {'level': 'info', 'message': no_level_message})
 
-    def getVersion(self) -> Optional[str]:
-        '''Returns HungerBridge version'''
-        bridge = self.getBridge()
-        return bridge.get('version') if isinstance(bridge, dict) else None
+    def streamLogs(self) -> Stream:
+        return self.stream
 
-    def getPlatform(self) -> Optional[str]:
-        '''Returns server platform'''
-        bridge = self.getBridge()
-        return bridge.get('platform') if isinstance(bridge, dict) else None
+    # --- Auth & Server metadata ------------------------------------------------------
+    def authCheck(self, field: str | None = None):
+        resp = self._get('auth/check')
+        if field is None:
+            return resp
+        return self._extract(resp, field)
 
-    def getMinecraftVersion(self) -> Optional[str]:
-        '''Returns Minecraft version'''
-        bridge = self.getBridge()
-        return bridge.get('minecraft') if isinstance(bridge, dict) else None
+    def serverInfo(self, field: str | None = None):
+        resp = self._get('server/info')
+        if field is None:
+            return resp
+        return self._extract(resp, field)
 
-    def getBridge(self) -> dict:
-        '''Returns the `bridge` section from GET /server/info as a dict.'''
-        info = self.info()
-        return self._extract(info, 'bridge')
+    def serverMeta(self, field: str | None = None):
+        resp = self._get('server/meta')
+        if field is None:
+            return resp
+        return self._extract(resp, field)
 
-    def getStatus(self) -> bool:
-        '''Validates connection status'''
-        return self._extract(self.status(), 'ok')
+    def serverStatus(self, field: str | None = None):
+        resp = self._get('server/status')
+        if field is None:
+            return resp
+        return self._extract(resp, field)
 
-    def getTPS(self, mode: str = 'current') -> float:
-        '''
-        Returns TPS values:
-        - current:   EMA20
-        - 1m:        EMA1200
-        - 5m:        EMA6000
-        - tick_time: avg tick time (ms)
-        '''
-        data = self.world_tps()
+    # Convenience bridge accessors (existing historical helpers)
+    def getBridge(self, field: str | None = None):
+        # the 'bridge' object is under /server/info.bridge
+        if field is None:
+            return self.serverInfo()
+        return self._extract(self.serverInfo(), f'bridge.{field}')
+
+    def getVersion(self) -> str | None:
+        return self.getBridge('version')
+
+    def getPlatform(self) -> str | None:
+        return self.getBridge('platform')
+
+    def getMinecraftVersion(self) -> str | None:
+        return self.getBridge('minecraft')
+
+    # --- Players ---------------------------------------------------------------------
+    def getPlayers(self, field: str | None = None):
+        resp = self._get('players/list')
+        if field is None:
+            return resp
+        return self._extract(resp, field)
+
+    # --- World -----------------------------------------------------------------------
+    def getTPS(self, mode: str = 'current'):
+        resp = self._get('world/tps')
         if mode == 'current':
-            return self._extract(data, 'tps')
+            return self._extract(resp, 'tps')
         if mode == '1m':
-            return self._extract(data, 'tps_1m')
+            return self._extract(resp, 'tps_1m')
         if mode == '5m':
-            return self._extract(data, 'tps_5m')
+            return self._extract(resp, 'tps_5m')
         if mode == 'tick_time':
-            return self._extract(data, 'tick_time_ms')
+            return self._extract(resp, 'tick_time_ms')
+        raise InvalidModeError(f"Invalid mode: '{mode}'")
 
-        raise InvalidModeError(f'Invalid mode: \'{mode}\'')
+    def getMSPT(self, field: str | None = None):
+        resp = self._get('world/mspt')
+        if field is None:
+            return resp
+        return self._extract(resp, field)
 
-    def getPlayers(self, mode: str = 'count') -> Union[int, list]:
-        '''
-        Returns:
-        - count: number of players
-        - list: list of player names
-        '''
-        data = self.players()
+    def getLoadedChunks(self, field: str | None = None):
+        resp = self._get('world/chunks')
+        if field is None:
+            return resp
+        return self._extract(resp, field)
 
-        if mode == 'count':
-            return self._extract(data, 'count')
-        if mode == 'list':
-            return self._extract(data, 'players')
-        raise InvalidModeError(f'Invalid mode: \'{mode}\'')
+    def getWorldTime(self, field: str | None = None):
+        resp = self._get('world/time')
+        if field is None:
+            return resp
+        return self._extract(resp, field)
 
-    def getWorldTime(self) -> Optional[int]:
-        data = self.world_time()
-        return self._extract(data, 'time')
+    def getWorldWeather(self, field: str | None = None):
+        resp = self._get('world/weather')
+        if field is None:
+            return resp
+        return self._extract(resp, field)
 
-    def getWorldWeather(self) -> Optional[str]:
-        data = self.world_weather()
-        return self._extract(data, 'weather')
+    # --- System ----------------------------------------------------------------------
+    def getSystemUptime(self, field: str | None = None):
+        resp = self._get('system/uptime')
+        if field is None:
+            return resp
+        return self._extract(resp, field)
 
-    def getWorldChunks(self) -> Optional[int]:
-        data = self.world_chunks()
-        return self._extract(data, 'chunks')
+    def getSystemCpu(self, field: str | None = None):
+        resp = self._get('system/cpu')
+        if field is None:
+            return resp
+        return self._extract(resp, field)
 
-    def getMSPT(self) -> Optional[float]:
-        data = self.world_mspt()
-        return self._extract(data, 'mspt')
-    
+    def getSystemMemory(self, field: str | None = None):
+        resp = self._get('system/memory')
+        if field is None:
+            return resp
+        return self._extract(resp, field)
 
-    def auth_check(self) -> dict:
-        '''Check permissions for the token used to make the request (GET /auth/check).'''
-        return self._get('auth/check')
+    def getSystemDisk(self, field: str | None = None):
+        resp = self._get('system/disk')
+        if field is None:
+            return resp
+        return self._extract(resp, field)
+
