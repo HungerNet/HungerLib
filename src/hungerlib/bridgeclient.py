@@ -387,17 +387,20 @@ class BridgeClient:
                 'free': free_bytes,
             }
 
-    def log(self, message: str, level: str = 'info'):
+    def log(self, message: str, level: str = 'info', thread: str | None = None):
         '''POST /server/log — preserve original semantics and return full dict.
-        If level is None, apply the backspace trick to avoid explicit level.
+        - Accepts arbitrary level strings (builtin or custom).
+        - Optional `thread` allows specifying a custom thread name for the log event.
+        - If `level` is None, apply the backspace trick to avoid explicit level.
         '''
-        valid_levels = ['info', 'warn', 'error', None]
-        if level not in valid_levels:
-            raise InvalidLevelError(f"'{level}' is not a valid log level")
         if level is not None:
-            return self._post('server/log', {'level': level, 'message': message})
-        no_level_message = ('\b' * 50) + message
-        return self._post('server/log', {'level': 'info', 'message': no_level_message})
+            body = {'level': level, 'message': message}
+        else:
+            no_level_message = ('\b' * 50) + message
+            body = {'level': 'info', 'message': no_level_message}
+        if thread is not None:
+            body['thread'] = thread
+        return self._post('server/log', body)
 
     def runCommand(self, command: str, showConsole: bool = False, silent: bool = False, normalize: bool = True):
         '''POST /server/run. If normalize=False returns full dict; otherwise returns normalized string or None.'''

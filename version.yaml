@@ -1,5 +1,5 @@
 run: true
-version: '4.25-dev.29'
+version: '4.25-dev.30'
 description: |
   Dev 1:
   - Update BridgeClient, add log streaming support (HungerBridge update)
@@ -36,3 +36,5 @@ description: |
   - Add methods utility
   - Updated BridgeClient integration within MinecraftServer
   - Moved all errors to hungerlib.utils.exceptions
+  Dev 30:
+  - Updated BridgeClient to support new log() paramaters
