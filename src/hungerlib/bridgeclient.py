@@ -42,8 +42,7 @@ def _normalize_path(path: str | None) -> str:
 
 
 class Stream:
-    """SSE streaming wrapper for /server/stream."""
-
+    '''SSE streaming wrapper for /server/stream.'''
     def __init__(self, base_url: str, headers_provider, history_handler=None, new_log_handler=None):
         self.url = base_url.rstrip('/') + '/server/stream'
         self.headers_provider = headers_provider
@@ -147,17 +146,10 @@ class Stream:
         self._session = None
         self._stop_event = None
 
-    def isConnected(self) -> bool:
-        return self._thread is not None and self._thread.is_alive()
-
-    def getRaw(self) -> list:
-        return list(self.raw_stream)
-
-    def getSanitized(self) -> list:
-        return list(self.sanitized_stream)
-
-    def getTimestamped(self) -> dict:
-        return dict(self.timestamped_stream)
+    def isConnected(self) -> bool: return self._thread is not None and self._thread.is_alive()
+    def getRaw(self) -> list: return list(self.raw_stream)
+    def getSanitized(self) -> list: return list(self.sanitized_stream)
+    def getTimestamped(self) -> dict: return dict(self.timestamped_stream)
 
     @staticmethod
     def sanitize(line: str) -> str:
@@ -173,13 +165,6 @@ class Stream:
 
 
 class BridgeClient:
-    """Polished HungerBridge v3 Python SDK.
-
-    - One polished getter per endpoint (CamelCase).
-    - Parameterized getters: pass `field` to extract a single value; field=None returns full dict.
-    - Action endpoints return full dicts unless specified (see runCommand normalize=False).
-    """
-
     def __init__(self, url: str, token_id: str | None = None, token_secret: str | None = None, history_handler=None, new_log_handler=None):
         self.base = url.rstrip('/')
         self._token_id = token_id
@@ -191,7 +176,7 @@ class BridgeClient:
 
         self.stream = Stream(base_url=self.base, headers_provider=header_provider, history_handler=history_handler, new_log_handler=new_log_handler)
 
-    # --- HTTP helpers -----------------------------------------------------------------
+    # http helpers
     def _post(self, path: str, payload):
         full_path = '/' + path.lstrip('/')
         body_str = _canonicalize_json_body(payload)
@@ -232,7 +217,7 @@ class BridgeClient:
         return headers
 
     def _extract(self, response, path: str):
-        """Extract a dot-path from a dict response. Returns None if missing."""
+        '''Extract a dot-path from a dict response. Returns None if missing.'''
         if response is None:
             return None
         if path is None or path == '':
@@ -247,18 +232,18 @@ class BridgeClient:
 
     # --- Actions (return full dicts unless runCommand normalize=True) ------------------
     def ping(self):
-        """Return full /ping response dict."""
+        '''Return full /ping response dict.'''
         return self._get('ping')
 
     def getPing(self) -> int:
-        """Round-trip latency (ms) measured client-side."""
+        '''Round-trip latency (ms) measured client-side.'''
         start = time.time()
         self._get('ping')
         end = time.time()
         return int((end - start) * 1000)
 
     def runCommand(self, command: str, showConsole: bool = False, silent: bool = False, normalize: bool = True):
-        """POST /server/run. If normalize=False returns full dict; otherwise returns normalized string or None."""
+        '''POST /server/run. If normalize=False returns full dict; otherwise returns normalized string or None.'''
         resp = self._post('server/run', {'command': command, 'silent': silent, 'show_console': showConsole})
         if not normalize:
             return resp
@@ -277,24 +262,23 @@ class BridgeClient:
         return None
 
     def stopServer(self):
-        """POST /server/stop — returns full server response dict."""
+        '''POST /server/stop — returns full server response dict.'''
         return self._post('server/stop', {})
 
     def restartServer(self):
-        """POST /server/restart — returns full server response dict."""
+        '''POST /server/restart — returns full server response dict.'''
         return self._post('server/restart', {})
 
     def log(self, message: str, level: str = 'info'):
-        """POST /server/log — preserve original semantics and return full dict.
-
+        '''POST /server/log — preserve original semantics and return full dict.
         If level is None, apply the backspace trick to avoid explicit level.
-        """
+        '''
         valid_levels = ['info', 'warn', 'error', None]
         if level not in valid_levels:
             raise InvalidLevelError(f"'{level}' is not a valid log level")
         if level is not None:
             return self._post('server/log', {'level': level, 'message': message})
-        no_level_message = ('\b' * 20) + message
+        no_level_message = ('\b' * 50) + message
         return self._post('server/log', {'level': 'info', 'message': no_level_message})
 
     def streamLogs(self) -> Stream:
@@ -307,39 +291,23 @@ class BridgeClient:
             return resp
         return self._extract(resp, field)
 
-    def serverInfo(self, field: str | None = None):
-        resp = self._get('server/info')
-        if field is None:
-            return resp
-        return self._extract(resp, field)
-
     def serverMeta(self, field: str | None = None):
         resp = self._get('server/meta')
         if field is None:
             return resp
         return self._extract(resp, field)
 
-    def serverStatus(self, field: str | None = None):
-        resp = self._get('server/status')
-        if field is None:
-            return resp
-        return self._extract(resp, field)
+    def serverStatus(self):
+        return self._extract(self.ping(), 'ok')
 
-    # Convenience bridge accessors (existing historical helpers)
-    def getBridge(self, field: str | None = None):
-        # the 'bridge' object is under /server/info.bridge
-        if field is None:
-            return self.serverInfo()
-        return self._extract(self.serverInfo(), f'bridge.{field}')
-
-    def getVersion(self) -> str | None:
-        return self.getBridge('version')
+    def getBridgeVersion(self) -> str | None:
+        return self.serverMeta('bridge_version')
 
     def getPlatform(self) -> str | None:
-        return self.getBridge('platform')
+        return self.serverMeta('platform').title()
 
     def getMinecraftVersion(self) -> str | None:
-        return self.getBridge('minecraft')
+        return self.serverMeta('minecraft_version')
 
     # --- Players ---------------------------------------------------------------------
     def getPlayers(self, field: str | None = None):
