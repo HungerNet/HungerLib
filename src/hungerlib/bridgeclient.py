@@ -8,6 +8,7 @@ import json
 import uuid
 from urllib.parse import urlparse
 from .utils.exceptions import HungerBridgeError, InvalidLevelError, InvalidModeError
+from .utils.convert import convert
 
 
 def _canonicalize_json_body(value):
@@ -230,17 +231,173 @@ class BridgeClient:
             cur = cur.get(p)
         return cur
 
-    # --- Actions (return full dicts unless runCommand normalize=True) ------------------
-    def ping(self):
-        '''Return full /ping response dict.'''
-        return self._get('ping')
 
+    # ----------------------------------------------
+    # Public API
+    # ----------------------------------------------
+    def isOk(self):
+        return True if self._extract(self._get('ping'), 'ok') == 'true' else False
+    
+    def getServerTime(self):
+        return self._extract(self._get('ping'), 'server_time')
+    
     def getPing(self) -> int:
         '''Round-trip latency (ms) measured client-side.'''
         start = time.time()
         self._get('ping')
         end = time.time()
         return int((end - start) * 1000)
+
+    def getTokenInfo(self):
+        resp = self._get('auth/check')
+        return {
+            'token_id': self._extract(resp, 'tokenId'),
+            'policy_id': self._extract(resp, 'policyId'),
+            'permissions': self._extract(resp, 'permissions'),
+        }
+
+    def getServerMeta(self):
+        resp = self._get('server/meta')
+        return {
+            'platform': resp.get('platform'),
+            'minecraft_version': resp.get('minecraft_version'),
+            'bridge_version': resp.get('bridge_version'),
+            'port': resp.get('port')
+        }
+    
+    def getPlatform(self): return self.serverMeta()['platform']
+    def getMinecraftVersion(self): return self.serverMeta()['minecraft_version']
+    def getBridgeVersion(self): return self.serverMeta()['bridge_version']
+    def getBridgePort(self): return self.serverMeta()['port']
+
+    def getPlayers(self, mode: str='count'):
+        resp = self._get('players/list')
+        if mode == 'count':
+            return self._extract(resp, 'count')
+        if mode == 'list':
+            return self._extract(resp, 'players')
+        raise InvalidModeError(f"Invalid mode: '{mode}'")
+
+    def getMaxPlayers(self) -> int:
+        '''
+        Runs the 'list' command and extracts the max player count.
+        Expected format:
+        There are 0 of a max of 20 players online:
+        '''
+        try:
+            output = self.runCommand('list', show_console=False, silent=False, normalize=True)
+        except Exception:
+            return 0
+        if not output:
+            return 0
+        # Regex for: "There are X of a max of Y players online"
+        match = re.search(r'There are \d+ of a max of (\d+) players online:', output)
+        if match:
+            return int(match.group(1))
+        return 0
+
+    def getTPS(self, mode: str='current'):
+        resp = self._get('world/tps')
+        if mode == 'current':
+            return self._extract(resp, 'tps')
+        if mode == '1m':
+            return self._extract(resp, 'tps_1m')
+        if mode == '5m':
+            return self._extract(resp, 'tps_5m')
+        if mode == '15m':
+            return self._extract(resp, 'tps_15m')
+        raise InvalidModeError(f"Invalid mode: '{mode}'")
+
+    def getMSPT(self):
+        return self._extract(self._get('world/mspt'), 'mspt')
+
+    def getLoadedChunks(self):
+        return self._extract(self._get('world/chunks'), 'chunks')
+
+    def getWorldTime(self):
+        return self._extract(self._get('world/time'), 'time')
+
+    def getWorldWeather(self):
+        return self._extract(self._get('world/weather'), 'weather')
+
+    def getSystemUptime(self):
+        return self._extract(self._get('system/uptime'), 'uptime_ms')
+
+    def getCPUStats(self):
+        resp = self._get('system/cpu')
+        return {
+            'load': self._extract(resp, 'cpu_load'),
+            'processors': self._extract(resp, 'processors'),
+        }
+
+    def getMemoryStats(self, unit='mib'):
+        resp = self._get('system/memory')
+
+        used_bytes = self._extract(resp, 'used_bytes')
+        total_bytes = self._extract(resp, 'total_bytes')
+        free_bytes = self._extract(resp, 'free_bytes')
+        max_bytes = self._extract(resp, 'max_bytes')
+
+        if unit == 'mib':
+            return {
+                'used': convert.byte(used_bytes, 'b', 'mib'),
+                'total': convert.byte(total_bytes, 'b', 'mib'),
+                'free': convert.byte(free_bytes, 'b', 'mib'),
+                'max': convert.byte(max_bytes, 'b', 'mib'),
+            }
+        if unit == 'gib':
+            return {
+                'used': convert.byte(used_bytes, 'b', 'gib'),
+                'total': convert.byte(total_bytes, 'b', 'gib'),
+                'free': convert.byte(free_bytes, 'b', 'gib'),
+                'max': convert.byte(max_bytes, 'b', 'gib'),
+            }
+        else:
+            return {
+                'used': used_bytes,
+                'total': total_bytes,
+                'free': free_bytes,
+                'max': max_bytes,
+            }
+            
+
+    def getDiskStats(self, unit='mib'):
+        resp = self._get('system/disk')
+
+        used_bytes = self._extract(resp, 'used_bytes')
+        total_bytes = self._extract(resp, 'total_bytes')
+        free_bytes = self._extract(resp, 'free_bytes')
+
+        if unit == 'mib':
+            return {
+                'used': convert.byte(used_bytes, 'b', 'mib'),
+                'total': convert.byte(total_bytes, 'b', 'mib'),
+                'free': convert.byte(free_bytes, 'b', 'mib'),
+            }
+        if unit == 'gib':
+            return {
+                'used': convert.byte(used_bytes, 'b', 'gib'),
+                'total': convert.byte(total_bytes, 'b', 'gib'),
+                'free': convert.byte(free_bytes, 'b', 'gib'),
+            }
+        else:
+            return {
+                'used': used_bytes,
+                'total': total_bytes,
+                'free': free_bytes,
+            }
+
+    def log(self, message: str, level: str = 'info'):
+        '''POST /server/log — preserve original semantics and return full dict.
+        If level is None, apply the backspace trick to avoid explicit level.
+        '''
+        valid_levels = ['info', 'warn', 'error', None]
+        if level not in valid_levels:
+            raise InvalidLevelError(f"'{level}' is not a valid log level")
+        if level is not None:
+            return self._post('server/log', {'level': level, 'message': message})
+        no_level_message = ('\b' * 50) + message
+        return self._post('server/log', {'level': 'info', 'message': no_level_message})
 
     def runCommand(self, command: str, showConsole: bool = False, silent: bool = False, normalize: bool = True):
         '''POST /server/run. If normalize=False returns full dict; otherwise returns normalized string or None.'''
@@ -268,113 +425,3 @@ class BridgeClient:
     def restartServer(self):
         '''POST /server/restart — returns full server response dict.'''
         return self._post('server/restart', {})
-
-    def log(self, message: str, level: str = 'info'):
-        '''POST /server/log — preserve original semantics and return full dict.
-        If level is None, apply the backspace trick to avoid explicit level.
-        '''
-        valid_levels = ['info', 'warn', 'error', None]
-        if level not in valid_levels:
-            raise InvalidLevelError(f"'{level}' is not a valid log level")
-        if level is not None:
-            return self._post('server/log', {'level': level, 'message': message})
-        no_level_message = ('\b' * 50) + message
-        return self._post('server/log', {'level': 'info', 'message': no_level_message})
-
-    def streamLogs(self) -> Stream:
-        return self.stream
-
-    # --- Auth & Server metadata ------------------------------------------------------
-    def authCheck(self, field: str | None = None):
-        resp = self._get('auth/check')
-        if field is None:
-            return resp
-        return self._extract(resp, field)
-
-    def serverMeta(self, field: str | None = None):
-        resp = self._get('server/meta')
-        if field is None:
-            return resp
-        return self._extract(resp, field)
-
-    def serverStatus(self):
-        return self._extract(self.ping(), 'ok')
-
-    def getBridgeVersion(self) -> str | None:
-        return self.serverMeta('bridge_version')
-
-    def getPlatform(self) -> str | None:
-        return self.serverMeta('platform').title()
-
-    def getMinecraftVersion(self) -> str | None:
-        return self.serverMeta('minecraft_version')
-
-    # --- Players ---------------------------------------------------------------------
-    def getPlayers(self, field: str | None = None):
-        resp = self._get('players/list')
-        if field is None:
-            return resp
-        return self._extract(resp, field)
-
-    # --- World -----------------------------------------------------------------------
-    def getTPS(self, mode: str = 'current'):
-        resp = self._get('world/tps')
-        if mode == 'current':
-            return self._extract(resp, 'tps')
-        if mode == '1m':
-            return self._extract(resp, 'tps_1m')
-        if mode == '5m':
-            return self._extract(resp, 'tps_5m')
-        if mode == 'tick_time':
-            return self._extract(resp, 'tick_time_ms')
-        raise InvalidModeError(f"Invalid mode: '{mode}'")
-
-    def getMSPT(self, field: str | None = None):
-        resp = self._get('world/mspt')
-        if field is None:
-            return resp
-        return self._extract(resp, field)
-
-    def getLoadedChunks(self, field: str | None = None):
-        resp = self._get('world/chunks')
-        if field is None:
-            return resp
-        return self._extract(resp, field)
-
-    def getWorldTime(self, field: str | None = None):
-        resp = self._get('world/time')
-        if field is None:
-            return resp
-        return self._extract(resp, field)
-
-    def getWorldWeather(self, field: str | None = None):
-        resp = self._get('world/weather')
-        if field is None:
-            return resp
-        return self._extract(resp, field)
-
-    # --- System ----------------------------------------------------------------------
-    def getSystemUptime(self, field: str | None = None):
-        resp = self._get('system/uptime')
-        if field is None:
-            return resp
-        return self._extract(resp, field)
-
-    def getSystemCpu(self, field: str | None = None):
-        resp = self._get('system/cpu')
-        if field is None:
-            return resp
-        return self._extract(resp, field)
-
-    def getSystemMemory(self, field: str | None = None):
-        resp = self._get('system/memory')
-        if field is None:
-            return resp
-        return self._extract(resp, field)
-
-    def getSystemDisk(self, field: str | None = None):
-        resp = self._get('system/disk')
-        if field is None:
-            return resp
-        return self._extract(resp, field)
-

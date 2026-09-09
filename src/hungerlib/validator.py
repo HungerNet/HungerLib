@@ -1,18 +1,5 @@
 from dataclasses import fields
-
-class ValidationError(Exception):
-    def __init__(self, report, errors=None, warnings=None, fallbacks=None, recommended=None):
-        super().__init__(report)
-        self.report = report
-        self.errors = errors or []
-        self.warnings = warnings or []
-        self.fallbacks = fallbacks or []
-        self.recommended = recommended or []
-
-class FatalError(ValidationError): pass
-class TypeMismatchError(ValidationError): pass
-class FallbackError(ValidationError): pass
-class RecommendedError(ValidationError): pass
+from .utils.exceptions import ValidationError, FatalError, TypeMismatchError, FallbackError, RecommendedError
 
 
 class Validator:

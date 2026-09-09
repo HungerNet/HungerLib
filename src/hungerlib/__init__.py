@@ -15,14 +15,7 @@ from .servers import GenericServer, MinecraftServer
 from .bridgeclient import BridgeClient
 from .email import Email, EmailManager, EmailClient
 from .webhook import WebhookClient, WebhookServer
-from .validator import (
-    Validator,
-    ValidationError,
-    FatalError,
-    TypeMismatchError,
-    FallbackError,
-    RecommendedError,
-)
+from .validator import Validator
 
 from .utils import (
     snapSchedule,
@@ -36,12 +29,7 @@ from .utils import (
     validateAll,
     Buffer,
     convert,
-
-    # exceptions
-    HungerLibError,
-    InvalidLevelError,
-    InvalidModeError,
-    HungerBridgeError
+    methods,
 )
 
 # namespaces
@@ -57,6 +45,7 @@ utils = SimpleNamespace(
     validateAll = validateAll,
     Buffer = Buffer,
     convert = convert,
+    methods = methods,
 )
 
 servers = SimpleNamespace(
@@ -100,18 +89,7 @@ __all__ = [
     'WebhookClient',
     'Buffer',
     'convert',
-
-    # errors
-    'ValidationError',
-    'FatalError',
-    'TypeMismatchError',
-    'FallbackError',
-    'RecommendedError',
-
-    'HungerLibError',
-    'InvalidLevelError',
-    'InvalidModeError',
-    'HungerBridgeError',
+    'methods',
 
     # namespaces
     'utils',

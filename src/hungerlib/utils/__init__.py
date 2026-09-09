@@ -1,12 +1,8 @@
 from .buffer import Buffer
 from .utils import Snapshot, clearTerminal, validateAll
 from .convert import convert
-from .exceptions import (
-    HungerLibError,
-    InvalidLevelError,
-    InvalidModeError,
-    HungerBridgeError
-)
+from .methods import methods
+
 from .time import (
     snapSchedule,
     runCountdownEvents,
@@ -28,10 +24,5 @@ __all__ = [
     'validateAll',
     'Buffer',
     'convert',
-
-    # exceptions
-    'HungerLibError',
-    'InvalidLevelError',
-    'InvalidModeError',
-    'HungerBridgeError',
+    'methods',
 ]

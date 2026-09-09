@@ -1,4 +1,3 @@
-# Universal server class
 from hungerlib.panel import Panel
 
 
