@@ -356,22 +356,46 @@ class BridgeClient:
     def getMemoryStats(self, unit='mib'):
         resp = self._get('system/memory')
 
-        used_bytes = self._extract(resp, 'used_bytes')
-        total_bytes = self._extract(resp, 'total_bytes')
-        free_bytes = self._extract(resp, 'free_bytes')
-        max_bytes = self._extract(resp, 'max_bytes')
-        nonheap_used = self._extract(resp, 'nonheap_used')
-        nonheap_committed = self._extract(resp, 'nonheap_committed')
-        nonheap_max = self._extract(resp, 'nonheap_max')
+        heap_used = self._extract(resp, 'heap_used_bytes')
+        heap_committed = self._extract(resp, 'heap_committed_bytes')
+        heap_max = self._extract(resp, 'heap_max_bytes')
+        nonheap_used = self._extract(resp, 'nonheap_used_bytes')
+        nonheap_committed = self._extract(resp, 'nonheap_committed_bytes')
+        nonheap_max = self._extract(resp, 'nonheap_max_bytes')
+        jvm_used = self._extract(resp, 'jvm_used_bytes')
+        jvm_committed = self._extract(resp, 'jvm_committed_bytes')
+        jvm_max = self._extract(resp, 'jvm_max_bytes')
+        process_used = self._extract(resp, 'process_used_bytes')
+        process_virtual = self._extract(resp, 'process_virtual_bytes')
+
+        def _convert_value(value):
+            return self._convert(value, unit)
 
         return {
-            'used': self._convert(used_bytes, unit),
-            'total': self._convert(total_bytes, unit),
-            'free': self._convert(free_bytes, unit),
-            'max': self._convert(max_bytes, unit),
-            'nonheap_used': self._convert(nonheap_used, unit),
-            'nonheap_committed': self._convert(nonheap_committed, unit),
-            'nonheap_max': self._convert(nonheap_max, unit),
+            'heap_used': _convert_value(heap_used),
+            'heap_committed': _convert_value(heap_committed),
+            'heap_max': _convert_value(heap_max),
+            'nonheap_used': _convert_value(nonheap_used),
+            'nonheap_committed': _convert_value(nonheap_committed),
+            'nonheap_max': _convert_value(nonheap_max),
+            'jvm_used': _convert_value(jvm_used),
+            'jvm_committed': _convert_value(jvm_committed),
+            'jvm_max': _convert_value(jvm_max),
+            'process_used': _convert_value(process_used),
+            'process_virtual': _convert_value(process_virtual),
+            'used': _convert_value(heap_used),
+            'total': _convert_value(heap_committed),
+            'free': _convert_value(max(0, heap_committed - heap_used) if heap_committed is not None and heap_used is not None else None),
+            'max': _convert_value(heap_max),
+        }
+
+    def getProcessMemory(self, unit='mib'):
+        resp = self._get('system/memory')
+        process_used = self._extract(resp, 'process_used_bytes')
+        process_virtual = self._extract(resp, 'process_virtual_bytes')
+        return {
+            'process_used': self._convert(process_used, unit),
+            'process_virtual': self._convert(process_virtual, unit),
         }
 
     def getDiskStats(self, unit='mib'):
