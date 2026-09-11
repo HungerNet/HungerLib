@@ -1,5 +1,5 @@
 run: true
-version: '4.25-dev.36'
+version: '4.25-dev.37'
 description: |
   Dev 1:
   - Update BridgeClient, add log streaming support (HungerBridge update)
@@ -50,3 +50,5 @@ description: |
   - Added new memory telemetry fields and process memory support
   - Synced BridgeClient with HungerBridge system/memory and /server/log behavior
   - Fixed custom log level handling and updated API docs
+  Dev 37:
+  - Fix BridgeClient

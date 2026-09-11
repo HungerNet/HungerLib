@@ -14,10 +14,60 @@ from .utils.convert import convert
 def _canonicalize_json_body(value):
     if value is None:
         return ''
+    # Produce a deterministic, sorted-key, ASCII-escaped JSON representation
+    # that matches the server-side canonicalization used for HMAC signing.
+    def _quote_string(s: str) -> str:
+        if s is None:
+            return '""'
+        out = ['"']
+        for ch in s:
+            o = ord(ch)
+            if ch == '"': out.append('\\"')
+            elif ch == '\\': out.append('\\\\')
+            elif ch == '\b': out.append('\\b')
+            elif ch == '\f': out.append('\\f')
+            elif ch == '\n': out.append('\\n')
+            elif ch == '\r': out.append('\\r')
+            elif ch == '\t': out.append('\\t')
+            elif o < 0x20 or o > 0x7f:
+                out.append('\\u%04x' % o)
+            else:
+                out.append(ch)
+        out.append('"')
+        return ''.join(out)
+
+    def _canonicalize(obj):
+        # primitives
+        if obj is None:
+            return 'null'
+        if isinstance(obj, bool):
+            return 'true' if obj else 'false'
+        if isinstance(obj, (int, float)) and not isinstance(obj, bool):
+            # JSON numbers: use Python's json encoder for stable formatting
+            return json.dumps(obj, separators=(',', ':'))
+        if isinstance(obj, str):
+            return _quote_string(obj)
+        if isinstance(obj, (list, tuple)):
+            parts = [_canonicalize(v) for v in obj]
+            return '[' + ','.join(parts) + ']'
+        if isinstance(obj, dict):
+            items = []
+            for k in sorted(obj.keys()):
+                key = _quote_string(str(k))
+                val = _canonicalize(obj[k])
+                items.append(key + ':' + val)
+            return '{' + ','.join(items) + '}'
+        # Fallback to string representation
+        return _quote_string(str(obj))
+
     try:
-        return json.dumps(value, separators=(',', ':'), sort_keys=True)
+        return _canonicalize(value)
     except Exception:
-        return str(value)
+        # Fallback: stable json.dumps
+        try:
+            return json.dumps(value, separators=(',', ':'), sort_keys=True)
+        except Exception:
+            return str(value)
 
 
 def _normalize_path(path: str | None) -> str:
