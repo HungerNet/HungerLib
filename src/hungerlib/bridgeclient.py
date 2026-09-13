@@ -448,21 +448,6 @@ class BridgeClient:
             'process_virtual': self._convert(process_virtual, unit),
         }
 
-    def getDiskStats(self, unit='mib'):
-        resp = self._get('system/disk')
-
-        used_bytes = self._extract(resp, 'used_bytes')
-        total_bytes = self._extract(resp, 'total_bytes')
-        free_bytes = self._extract(resp, 'free_bytes')
-        usable_bytes = self._extract(resp, 'usable_bytes')
-
-        return {
-            'used': self._convert(used_bytes, unit),
-            'total': self._convert(total_bytes, unit),
-            'free': self._convert(free_bytes, unit),
-            'usable': self._convert(usable_bytes, unit),
-        }
-
     def getGCStats(self):
         resp = self._get('system/gc')
         return {

@@ -61,7 +61,6 @@ class MinecraftServer(GenericServer):
         m.proxy(self, bridge.getSystemUptime)
         m.proxy(self, bridge.getCPUStats)
         m.proxy(self, bridge.getMemoryStats)
-        m.proxy(self, bridge.getDiskStats)
 
         m.proxy(self, bridge.log)
         m.proxy(self, bridge.runCommand)
