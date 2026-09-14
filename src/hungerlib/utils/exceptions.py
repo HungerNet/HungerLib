@@ -8,6 +8,12 @@ class InvalidModeError(HungerLibError): pass
 class HungerBridgeError(Exception): pass
 
 
+class HungerBridgeRateLimit(HungerBridgeError):
+    def __init__(self, message='Rate limit exceeded', retry_after=None):
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
 # Method exceptions
 class InvalidMethodError(Exception): pass
 

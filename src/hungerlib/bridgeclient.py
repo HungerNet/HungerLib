@@ -7,7 +7,7 @@ import hashlib
 import json
 import uuid
 from urllib.parse import urlparse
-from .utils.exceptions import HungerBridgeError, InvalidLevelError, InvalidModeError
+from .utils.exceptions import HungerBridgeError, HungerBridgeRateLimit, InvalidLevelError, InvalidModeError
 from .utils.convert import convert
 
 
@@ -216,12 +216,16 @@ class Stream:
 
 
 class BridgeClient:
-    def __init__(self, url: str, token_id: str | None = None, token_secret: str | None = None, history_handler=None, new_log_handler=None):
+    def __init__(self, url: str, token_id: str | None = None, token_secret: str | None = None, history_handler=None, new_log_handler=None, max_retries: int = 0, retry_backoff_sec: float = 1.0, swallow_rate_limit: bool = False):
         self.base = url.rstrip('/')
         self._token_id = token_id
         self._token_secret = token_secret
 
         self._static_headers = {'Content-Type': 'application/json', 'Accept': 'application/json'}
+
+        self._max_retries = int(max_retries or 0)
+        self._retry_backoff_sec = float(retry_backoff_sec or 1.0)
+        self._swallow_rate_limit = bool(swallow_rate_limit)
 
         header_provider = (lambda: self._build_auth_headers('GET', '/server/stream', None)) if (self._token_id and self._token_secret) else dict(self._static_headers)
 
@@ -232,24 +236,80 @@ class BridgeClient:
         full_path = '/' + path.lstrip('/')
         body_str = _canonicalize_json_body(payload)
         headers = self._build_auth_headers('POST', full_path, payload)
-        r = requests.post(self.base + full_path, headers=headers, data=body_str)
-        if not r.ok:
-            raise HungerBridgeError(f'HungerBridge error {r.status_code}: {r.text}')
-        try:
-            return r.json()
-        except Exception:
-            return r.text
+
+        for attempt in range(self._max_retries + 1):
+            r = requests.post(self.base + full_path, headers=headers, data=body_str)
+
+            if r.status_code == 429:
+                retry_after = None
+                ra = r.headers.get('Retry-After')
+                if ra:
+                    try:
+                        retry_after = int(float(ra))
+                    except Exception:
+                        retry_after = ra
+
+                if attempt < self._max_retries:
+                    sleep_sec = self._retry_backoff_sec * (attempt + 1)
+                    try:
+                        if isinstance(retry_after, (int, float)):
+                            sleep_sec = max(sleep_sec, retry_after)
+                    except Exception:
+                        pass
+                    time.sleep(sleep_sec)
+                    continue
+
+                if self._swallow_rate_limit:
+                    return None
+
+                raise HungerBridgeRateLimit(retry_after=retry_after)
+
+            if not r.ok:
+                raise HungerBridgeError(f'HungerBridge error {r.status_code}: {r.text}')
+
+            try:
+                return r.json()
+            except Exception:
+                return r.text
 
     def _get(self, path: str):
         full_path = '/' + path.lstrip('/')
         headers = self._build_auth_headers('GET', full_path, None)
-        r = requests.get(self.base + full_path, headers=headers)
-        if not r.ok:
-            raise HungerBridgeError(f'HungerBridge error {r.status_code}: {r.text}')
-        try:
-            return r.json()
-        except Exception:
-            return r.text
+
+        for attempt in range(self._max_retries + 1):
+            r = requests.get(self.base + full_path, headers=headers)
+
+            if r.status_code == 429:
+                retry_after = None
+                ra = r.headers.get('Retry-After')
+                if ra:
+                    try:
+                        retry_after = int(float(ra))
+                    except Exception:
+                        retry_after = ra
+
+                if attempt < self._max_retries:
+                    sleep_sec = self._retry_backoff_sec * (attempt + 1)
+                    try:
+                        if isinstance(retry_after, (int, float)):
+                            sleep_sec = max(sleep_sec, retry_after)
+                    except Exception:
+                        pass
+                    time.sleep(sleep_sec)
+                    continue
+
+                if self._swallow_rate_limit:
+                    return None
+
+                raise HungerBridgeRateLimit(retry_after=retry_after)
+
+            if not r.ok:
+                raise HungerBridgeError(f'HungerBridge error {r.status_code}: {r.text}')
+
+            try:
+                return r.json()
+            except Exception:
+                return r.text
 
     def _build_auth_headers(self, method: str, path: str, body):
         headers = dict(self._static_headers)
