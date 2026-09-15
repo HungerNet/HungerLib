@@ -14,8 +14,6 @@ from .utils.convert import convert
 def _canonicalize_json_body(value):
     if value is None:
         return ''
-    # Produce a deterministic, sorted-key, ASCII-escaped JSON representation
-    # that matches the server-side canonicalization used for HMAC signing.
     def _quote_string(s: str) -> str:
         if s is None:
             return '""'
@@ -37,13 +35,11 @@ def _canonicalize_json_body(value):
         return ''.join(out)
 
     def _canonicalize(obj):
-        # primitives
         if obj is None:
             return 'null'
         if isinstance(obj, bool):
             return 'true' if obj else 'false'
         if isinstance(obj, (int, float)) and not isinstance(obj, bool):
-            # JSON numbers: use Python's json encoder for stable formatting
             return json.dumps(obj, separators=(',', ':'))
         if isinstance(obj, str):
             return _quote_string(obj)
@@ -57,13 +53,11 @@ def _canonicalize_json_body(value):
                 val = _canonicalize(obj[k])
                 items.append(key + ':' + val)
             return '{' + ','.join(items) + '}'
-        # Fallback to string representation
         return _quote_string(str(obj))
 
     try:
         return _canonicalize(value)
     except Exception:
-        # Fallback: stable json.dumps
         try:
             return json.dumps(value, separators=(',', ':'), sort_keys=True)
         except Exception:
@@ -216,7 +210,18 @@ class Stream:
 
 
 class BridgeClient:
-    def __init__(self, url: str, token_id: str | None = None, token_secret: str | None = None, history_handler=None, new_log_handler=None, max_retries: int = 0, retry_backoff_sec: float = 1.0, swallow_rate_limit: bool = False):
+    def __init__(
+        self,
+        url: str,
+        token_id: str | None = None,
+        token_secret: str | None = None,
+        history_handler=None,
+        new_log_handler=None,
+        max_retries: int = 0,
+        retry_backoff_sec: float = 1.0,
+        swallow_rate_limit: bool = False,
+        static_delay: float = 0.0,  # NEW: seconds to wait between requests
+    ):
         self.base = url.rstrip('/')
         self._token_id = token_id
         self._token_secret = token_secret
@@ -227,12 +232,31 @@ class BridgeClient:
         self._retry_backoff_sec = float(retry_backoff_sec or 1.0)
         self._swallow_rate_limit = bool(swallow_rate_limit)
 
+        # Throttle state
+        self._static_delay = float(static_delay)
+        self._last_request_time = 0.0
+        self._throttle_lock = threading.Lock()
+
         header_provider = (lambda: self._build_auth_headers('GET', '/server/stream', None)) if (self._token_id and self._token_secret) else dict(self._static_headers)
 
         self.stream = Stream(base_url=self.base, headers_provider=header_provider, history_handler=history_handler, new_log_handler=new_log_handler)
 
-    # http helpers
+    # Thread-safe throttle enforcing a minimum gap between requests
+    def _throttle(self):
+        if self._static_delay <= 0:
+            return
+        with self._throttle_lock:
+            now = time.time()
+            delta = now - self._last_request_time
+            if delta < self._static_delay:
+                time.sleep(self._static_delay - delta)
+            # update last_request_time to the time we actually send the request
+            self._last_request_time = time.time()
+
+    # HTTP helpers
     def _post(self, path: str, payload):
+        self._throttle()
+
         full_path = '/' + path.lstrip('/')
         body_str = _canonicalize_json_body(payload)
         headers = self._build_auth_headers('POST', full_path, payload)
@@ -273,6 +297,8 @@ class BridgeClient:
                 return r.text
 
     def _get(self, path: str):
+        self._throttle()
+
         full_path = '/' + path.lstrip('/')
         headers = self._build_auth_headers('GET', full_path, None)
 
@@ -328,7 +354,6 @@ class BridgeClient:
         return headers
 
     def _extract(self, response, path: str):
-        '''Extract a dot-path from a dict response. Returns None if missing.'''
         if response is None:
             return None
         if path is None or path == '':
@@ -350,17 +375,14 @@ class BridgeClient:
             return convert.byte(value, 'b', 'gib')
         return value
 
-    # ----------------------------------------------
     # Public API
-    # ----------------------------------------------
     def isOk(self):
         return True if str(self._extract(self._get('ping'), 'ok')).lower() == 'true' else False
-    
+
     def getServerTime(self):
         return self._extract(self._get('ping'), 'server_time')
-    
+
     def getPing(self) -> int:
-        '''Round-trip latency (ms) measured client-side.'''
         start = time.time()
         self._get('ping')
         end = time.time()
@@ -382,7 +404,7 @@ class BridgeClient:
             'bridge_version': resp.get('bridge_version'),
             'port': resp.get('port')
         }
-    
+
     def getPlatform(self): return self.getServerMeta()['platform']
     def getMinecraftVersion(self): return self.getServerMeta()['minecraft_version']
     def getBridgeVersion(self): return self.getServerMeta()['bridge_version']
@@ -397,18 +419,12 @@ class BridgeClient:
         raise InvalidModeError(f"Invalid mode: '{mode}'")
 
     def getMaxPlayers(self) -> int:
-        '''
-        Runs the 'list' command and extracts the max player count.
-        Expected format:
-        There are 0 of a max of 20 players online:
-        '''
         try:
             output = self.runCommand('list', show_console=False, silent=False, normalize=True)
         except Exception:
             return 0
         if not output:
             return 0
-        # Regex for: "There are X of a max of Y players online"
         match = re.search(r'There are \d+ of a max of (\d+) players online:', output)
         if match:
             return int(match.group(1))
@@ -555,7 +571,6 @@ class BridgeClient:
         resp = self._post('server/run', {'command': command, 'silent': silent, 'show_console': showConsole})
         if not normalize:
             return resp
-        # normalize output to string when possible
         if isinstance(resp, dict):
             out = resp.get('output')
             if isinstance(out, list):
