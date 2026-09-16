@@ -44,7 +44,6 @@ class MinecraftServer(GenericServer):
         m.proxy(self, bridge.getTokenInfo)
 
         m.proxy(self, bridge.getServerMeta)
-        m.proxy(self, bridge.getMemoryStats)
         m.proxy(self, bridge.getPlatform)
         m.proxy(self, bridge.getMinecraftVersion)
         m.proxy(self, bridge.getBridgeVersion)
@@ -54,13 +53,20 @@ class MinecraftServer(GenericServer):
         m.proxy(self, bridge.getMaxPlayers)
 
         m.proxy(self, bridge.getTPS)
-        m.proxy(self, bridge.getLoadedChunks)
+        m.proxy(self, bridge.getMSPT)
         m.proxy(self, bridge.getWorldTime)
         m.proxy(self, bridge.getWorldWeather)
 
-        m.proxy(self, bridge.getSystemUptime)
+        m.proxy(self, bridge.getLoadedChunks)
+        m.proxy(self, bridge.getLoadedEntities)
+
+        m.proxy(self, bridge.getUptime)
         m.proxy(self, bridge.getCPUStats)
         m.proxy(self, bridge.getMemoryStats)
+        m.proxy(self, bridge.getProcessMemory)
+        m.proxy(self, bridge.getGCStats)
+        m.proxy(self, bridge.getThreadStats)
+        m.proxy(self, bridge.getNetworkStats)
 
         m.proxy(self, bridge.log)
         m.proxy(self, bridge.runCommand)
