@@ -1,5 +1,5 @@
 run: true
-version: '4.25-dev.40'
+version: '4.25-dev.41'
 description: |
   Dev 1:
   - Update BridgeClient, add log streaming support (HungerBridge update)
@@ -58,3 +58,5 @@ description: |
   - Added rate limit awareness to BridgeClient (#4)
   Dev 40:
   - Add throttling to BridgeClient (`static_delay`)
+  Dev 41:
+  - Fixed getMaxPlayers() to use native endpoint instead of parsing the output of the list command

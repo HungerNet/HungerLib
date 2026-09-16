@@ -419,16 +419,14 @@ class BridgeClient:
         raise InvalidModeError(f"Invalid mode: '{mode}'")
 
     def getMaxPlayers(self) -> int:
+        resp = self._get('players/list')
+        max_players = self._extract(resp, 'max')
+        if max_players is None:
+            return 0
         try:
-            output = self.runCommand('list', show_console=False, silent=False, normalize=True)
-        except Exception:
+            return int(max_players)
+        except (TypeError, ValueError):
             return 0
-        if not output:
-            return 0
-        match = re.search(r'There are \d+ of a max of (\d+) players online:', output)
-        if match:
-            return int(match.group(1))
-        return 0
 
     def getTPS(self, mode: str='current'):
         resp = self._get('world/tps')
