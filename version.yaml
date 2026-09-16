@@ -64,3 +64,5 @@ description: |
   - Fixed MinecraftServer -> BridgeClient integration to proxy correct methods
   Dev 43:
   - Added restart method to BridgeClient
+  Dev 44:
+  - Removed restart method

@@ -12,12 +12,7 @@ class HungerBridgeRateLimit(HungerBridgeError):
     def __init__(self, message='Rate limit exceeded', retry_after=None):
         super().__init__(message)
         self.retry_after = retry_after
-
-
-# Restart-related exceptions
-class FabricRestartError(HungerBridgeError):
-    """Raised when the bridge reports that a Fabric server cannot be restarted."""
-    pass
+ 
 
 
 # Method exceptions
