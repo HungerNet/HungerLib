@@ -7,7 +7,7 @@ import hashlib
 import json
 import uuid
 from urllib.parse import urlparse
-from .utils.exceptions import HungerBridgeError, HungerBridgeRateLimit, InvalidLevelError, InvalidModeError
+from .utils.exceptions import HungerBridgeError, HungerBridgeRateLimit, InvalidLevelError, InvalidModeError, FabricRestartError
 from .utils.convert import convert
 
 
@@ -585,3 +585,19 @@ class BridgeClient:
     def stopServer(self):
         '''POST /server/stop — returns full server response dict.'''
         return self._post('server/stop', {})
+
+    def restartServer(self):
+        '''POST /server/restart — request the server to restart.
+
+        For Paper this will attempt a real restart and return the server response.
+        For Fabric the bridge returns an error indicating restart is not supported;
+        in that case this method raises `FabricRestartError`.
+        '''
+        resp = self._post('server/restart', {})
+        if isinstance(resp, dict):
+            platform = resp.get('platform')
+            restarted = resp.get('restarted')
+            error = resp.get('error')
+            if platform == 'fabric' and not restarted:
+                raise FabricRestartError(error or 'Fabric cannot restart a server')
+        return resp

@@ -1,5 +1,5 @@
 run: true
-version: '4.25-dev.42'
+version: '4.25-dev.43'
 description: |
   Dev 1:
   - Update BridgeClient, add log streaming support (HungerBridge update)
@@ -62,3 +62,5 @@ description: |
   - Fixed getMaxPlayers() to use native endpoint instead of parsing the output of the list command
   Dev 42:
   - Fixed MinecraftServer -> BridgeClient integration to proxy correct methods
+  Dev 43:
+  - Added restart method to BridgeClient

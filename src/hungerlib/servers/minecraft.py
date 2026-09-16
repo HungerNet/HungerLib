@@ -72,6 +72,7 @@ class MinecraftServer(GenericServer):
         m.proxy(self, bridge.runCommand)
 
         m.proxy(self, bridge.stopServer)
+        m.proxy(self, bridge.restartServer)
 
         # Proxy BridgeClient's stream
         self.stream = bridge.stream

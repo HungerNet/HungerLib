@@ -14,6 +14,12 @@ class HungerBridgeRateLimit(HungerBridgeError):
         self.retry_after = retry_after
 
 
+# Restart-related exceptions
+class FabricRestartError(HungerBridgeError):
+    """Raised when the bridge reports that a Fabric server cannot be restarted."""
+    pass
+
+
 # Method exceptions
 class InvalidMethodError(Exception): pass
 
