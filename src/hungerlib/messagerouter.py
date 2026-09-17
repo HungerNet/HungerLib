@@ -166,17 +166,9 @@ class MessageRouter:
         maps = self._merge_maps(override_maps or self.destination_maps, extra_maps)
         msg = self._format(text, maps, **ctx)
         for server in self.Servers:
-            if hasattr(server, 'bridge'):
-                server.bridge.log(msg, level)
+            server.log(msg, level)
         return msg
 
-    def broadcast(self, text, extra_maps=None, override_maps=None, **ctx):
-        maps = self._merge_maps(override_maps or self.broadcast_maps, extra_maps)
-        msg = self._format(text, maps, **ctx)
-        for server in self.Servers:
-            if hasattr(server, 'sendBroadcast'):
-                server.sendBroadcast(msg)
-        return msg
 
     def filelog(self, text, level='info', extra_maps=None, override_maps=None, **ctx):
         maps = self._merge_maps(override_maps or self.file_maps, extra_maps)
