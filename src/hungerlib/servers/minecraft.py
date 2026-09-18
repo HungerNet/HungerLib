@@ -70,6 +70,7 @@ class MinecraftServer(GenericServer):
 
         m.proxy(self, bridge.log)
         m.proxy(self, bridge.runCommand)
+        m.proxy(self, bridge.broadcast)
 
         m.proxy(self, bridge.stopServer)
 

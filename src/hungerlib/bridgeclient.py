@@ -7,7 +7,7 @@ import hashlib
 import json
 import uuid
 from urllib.parse import urlparse
-from .utils.exceptions import HungerBridgeError, HungerBridgeRateLimit, InvalidLevelError, InvalidModeError
+from .utils.exceptions import HungerBridgeError, HungerBridgeRateLimit, InvalidModeError
 from .utils.convert import convert
 
 
@@ -67,7 +67,7 @@ def _canonicalize_json_body(value):
 def _normalize_path(path: str | None) -> str:
     if not path:
         return '/'
-    normalized = str(path).strip()
+    normalized = path.strip()
     if not normalized:
         return '/'
     if '://' in normalized:
@@ -581,6 +581,12 @@ class BridgeClient:
         if isinstance(resp, (str, bytes)):
             return resp
         return None
+
+    def broadcast(self, msg: str, prefix: str | None = None):
+        '''Broadcast a message to all players using tellraw @a.'''
+        safe = msg.replace('"', '\\"')
+        cmd = f'tellraw @a {{"text":"{prefix + safe if prefix else safe}"}}'
+        return self.runCommand(cmd, showConsole=True, silent=False, normalize=True)
 
     def stopServer(self):
         '''POST /server/stop — returns full server response dict.'''

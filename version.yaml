@@ -1,5 +1,5 @@
 run: true
-version: '4.25-dev.45'
+version: '4.25-dev.46'
 description: |
   Dev 1:
   - Update BridgeClient, add log streaming support (HungerBridge update)
@@ -68,3 +68,5 @@ description: |
   - Removed restart method
   Dev 45:
   - Updated MessageRouter to use new MinecraftServer methods and removed deprecated methods
+  Dev 46:
+  - Update BridgeClient and MessageRouter
