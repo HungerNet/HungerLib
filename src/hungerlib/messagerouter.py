@@ -169,7 +169,10 @@ class MessageRouter:
             server.log(msg, level)
         return msg
 
-    def broadcast(self, text, prefix=f'[{self.name}] ', extra_maps=None, override_maps=None, **ctx):
+    def broadcast(self, text, prefix=None, extra_maps=None, override_maps=None, **ctx):
+        if prefix is None:
+            prefix = f'[{self.name}] '
+
         maps = self._merge_maps(override_maps or self.broadcast_maps, extra_maps)
         msg = self._format(text, maps, **ctx)
         for server in self.Servers:
