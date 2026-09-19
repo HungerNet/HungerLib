@@ -36,43 +36,43 @@ class MinecraftServer(GenericServer):
         self.bridge = bridge
 
         # Proxy methods from bridge client
-        m.proxy(self, bridge.isOk)
+        m.proxy(bridge.isOk)
 
-        m.proxy(self, bridge.getServerTime)
-        m.proxy(self, bridge.getPing)
+        m.proxy(bridge.getServerTime)
+        m.proxy(bridge.getPing)
 
-        m.proxy(self, bridge.getTokenInfo)
+        m.proxy(bridge.getTokenInfo)
 
-        m.proxy(self, bridge.getServerMeta)
-        m.proxy(self, bridge.getPlatform)
-        m.proxy(self, bridge.getMinecraftVersion)
-        m.proxy(self, bridge.getBridgeVersion)
-        m.proxy(self, bridge.getBridgePort)
+        m.proxy(bridge.getServerMeta)
+        m.proxy(bridge.getPlatform)
+        m.proxy(bridge.getMinecraftVersion)
+        m.proxy(bridge.getBridgeVersion)
+        m.proxy(bridge.getBridgePort)
 
-        m.proxy(self, bridge.getPlayers)
-        m.proxy(self, bridge.getMaxPlayers)
+        m.proxy(bridge.getPlayers)
+        m.proxy(bridge.getMaxPlayers)
 
-        m.proxy(self, bridge.getTPS)
-        m.proxy(self, bridge.getMSPT)
-        m.proxy(self, bridge.getWorldTime)
-        m.proxy(self, bridge.getWorldWeather)
+        m.proxy(bridge.getTPS)
+        m.proxy(bridge.getMSPT)
+        m.proxy(bridge.getWorldTime)
+        m.proxy(bridge.getWorldWeather)
 
-        m.proxy(self, bridge.getLoadedChunks)
-        m.proxy(self, bridge.getLoadedEntities)
+        m.proxy(bridge.getLoadedChunks)
+        m.proxy(bridge.getLoadedEntities)
 
-        m.proxy(self, bridge.getUptime)
-        m.proxy(self, bridge.getCPUStats)
-        m.proxy(self, bridge.getMemoryStats)
-        m.proxy(self, bridge.getProcessMemory)
-        m.proxy(self, bridge.getGCStats)
-        m.proxy(self, bridge.getThreadStats)
-        m.proxy(self, bridge.getNetworkStats)
+        m.proxy(bridge.getUptime)
+        m.proxy(bridge.getCPUStats)
+        m.proxy(bridge.getMemoryStats)
+        m.proxy(bridge.getProcessMemory)
+        m.proxy(bridge.getGCStats)
+        m.proxy(bridge.getThreadStats)
+        m.proxy(bridge.getNetworkStats)
 
-        m.proxy(self, bridge.log)
-        m.proxy(self, bridge.runCommand)
-        m.proxy(self, bridge.broadcast)
+        m.proxy(bridge.log)
+        m.proxy(bridge.runCommand)
+        m.proxy(bridge.broadcast)
 
-        m.proxy(self, bridge.stopServer)
+        m.proxy(bridge.stopServer)
 
         # Proxy BridgeClient's stream
         self.stream = bridge.stream
