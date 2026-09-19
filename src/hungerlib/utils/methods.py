@@ -52,7 +52,7 @@ def bind_method(obj, func, name=None):
 
 
 methods = SimpleNamespace(
-    rename=proxy_method,
+    rename=rename_method,
     remove=remove_method,
     alias=alias_method,
     bind=bind_method,
