@@ -1,5 +1,5 @@
 run: true
-version: '4.25-dev.49'
+version: '4.25-dev.50'
 description: |
   Dev 1:
   - Update BridgeClient, add log streaming support (HungerBridge update)
@@ -76,3 +76,5 @@ description: |
   - Fixed methods util namespace
   Dev 49:
   - Fixed MinecraftServer usage of m.proxy()
+  Dev 50:
+  - Reverted MinecraftServer methods to old naming

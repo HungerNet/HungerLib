@@ -76,19 +76,3 @@ class MinecraftServer(GenericServer):
 
         # Proxy BridgeClient's stream
         self.stream = bridge.stream
-
-        # Rename GenericServer methods
-        m.rename(self.getRAM, 'getContainerRAM')
-        m.rename(self.getCPU, 'getContainerCPU')
-        m.rename(self.getDisk, 'getContainerDisk')
-
-        m.rename(self.getUptime, 'getContainerUptime')
-        m.rename(self.getStatus, 'getContainerStatus')
-
-        m.rename(self.isOnline, 'isContainerOnline')
-        m.rename(self.isOffline, 'isContainerOffline')
-
-        m.rename(self.start, 'startContainer')
-        m.rename(self.restart, 'restartContainer')
-        m.rename(self.stop, 'stopContainer')
-        m.rename(self.kill, 'killContainer')    
