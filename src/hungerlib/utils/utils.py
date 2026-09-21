@@ -1,6 +1,9 @@
 import os
 import time
 from statistics import mean
+from hungerlib.panel import Panel
+from hungerlib.servers.generic import GenericServer
+from hungerlib.servers.minecraft import MinecraftServer
 
 
 class Snapshot:
@@ -92,7 +95,7 @@ class Snapshot:
 def clearTerminal():
     os.system('clear' if os.name == 'posix' else 'cls')
 
-def validateAll(panel: 'Panel', server: 'Server') -> bool:
+def validateAll(panel: Panel, server: GenericServer | MinecraftServer) -> bool:
     return (
         panel.ping() is True and
         panel.validateAPI() is True and
